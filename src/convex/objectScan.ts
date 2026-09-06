@@ -56,10 +56,11 @@ export const identifyObject = action({
     if (!apiKey || !secret) {
       /* Demo/testing fallback so the scan overlay is always wired. */
       return {
-        label: "Phanes Test Object",
+        label: "Monochrome Study Desk",
         confidence: 0.94,
-        source: "exact" as const,
-        description: "Demo object rendered for scanner calibration.",
+        source: "generic" as const,
+        description:
+          "A flat, high-contrast test surface rendered by the Focus calibration scene. Not a live recognition result.",
         price: null,
         url: null,
         box: {
@@ -125,8 +126,3 @@ export const identifyObject = action({
     }
   },
 });
-
-
-
-
-

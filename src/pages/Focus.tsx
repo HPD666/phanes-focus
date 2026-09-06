@@ -55,7 +55,7 @@ export default function Focus() {
 
   const layerCanScan = activeLayer === "core" || activeLayer === "omni";
 
-  // Live object scan cooldown refresh
+  // Focus scan cooldown refresh
   useEffect(() => {
     if (scanCooldown.current > 0) {
       const t = setTimeout(
@@ -122,6 +122,22 @@ export default function Focus() {
     [activeLayer, metrics, weather, geo, heading, capturesForOverlay.length, nearbyCount, feed, network],
   );
 
+  const enqueueObjectScan = useCallback(
+    (dataUrl: string) => {
+      if (!layerCanScan || !dataUrl) return;
+      setScanHit(null);
+      lastScanKey.current += 1;
+      const key = lastScanKey.current;
+      scanCooldown.current = 1600;
+      identifyObject({ thumbBase64: dataUrl }).then((hit) => {
+        if (hit && key === lastScanKey.current) {
+          setScanHit(hit as import("@/convex/objectScan").Hit);
+        }
+      });
+    },
+    [identifyObject, layerCanScan],
+  );
+
   const handleCapture = async () => {
     const shot = capture();
     if (!shot) {
@@ -142,33 +158,19 @@ export default function Focus() {
     } catch {
       toast.error("Failed to archive capture");
     }
-
     if (shot.thumb && layerCanScan) {
-      setScanHit(null);
-      lastScanKey.current += 1;
-      const key = lastScanKey.current;
-      scanCooldown.current = 1600;
-      const dataUrl = shot.thumb.startsWith("data:") ? shot.thumb : `data:image/jpeg;base64,${shot.thumb.split(",")[1] ?? ""}`;
-      identifyObject({ thumbBase64: dataUrl }).then((hit) => {
-        if (hit && key === lastScanKey.current) {
-          setScanHit(hit as import("@/convex/objectScan").Hit);
-        }
-      });
+      const dataUrl = shot.thumb.startsWith("data:")
+        ? shot.thumb
+        : `data:image/jpeg;base64,${shot.thumb.split(",")[1] ?? ""}`;
+      enqueueObjectScan(dataUrl);
     }
   };
 
   const handleRescan = useCallback(() => {
     if (scanCooldown.current > 0 || !frameCanvas) return;
-    scanCooldown.current = 1600;
-    lastScanKey.current += 1;
-    const key = lastScanKey.current;
     const dataUrl = frameCanvas.toDataURL("image/jpeg", 0.75);
-    identifyObject({ thumbBase64: dataUrl }).then((hit) => {
-      if (hit && key === lastScanKey.current) {
-        setScanHit(hit as import("@/convex/objectScan").Hit);
-      }
-    });
-  }, [frameCanvas, identifyObject]);
+    enqueueObjectScan(dataUrl);
+  }, [frameCanvas, enqueueObjectScan]);
 
   return (
     <div
@@ -188,7 +190,7 @@ export default function Focus() {
         className={`absolute inset-0 size-full ${feed === "synthetic" ? "" : "hidden"}`}
       />
 
-      {/* live object bounding frame */}
+      {/* live focus bounding frame */}
       {activeLayer === "core" && scanHit?.box && (
         <ScanFrame
           box={scanHit.box}
@@ -197,7 +199,7 @@ export default function Focus() {
         />
       )}
 
-      {/* live object scan HUD panel */}
+      {/* live focus scan readout */}
       <ObjectScan
         hit={scanHit}
         accent={LAYER_MAP[activeLayer].color}
@@ -242,6 +244,7 @@ export default function Focus() {
         cloudAvailable={Boolean(cloudAsk)}
         cloudEnabled={false}
         onToggleCloud={() => {}}
+        scanHit={scanHit}
       />
 
       {/* radar */}

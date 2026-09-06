@@ -22,6 +22,7 @@ import { SynthScene } from "@/lib/synth";
 import { ACTIVE_LAYERS } from "@/lib/layers";
 import { useAuth } from "@/hooks/use-auth";
 
+
 const LAYER_ICONS: Record<
   (typeof ACTIVE_LAYERS)[number]["id"],
   typeof Scan
@@ -35,8 +36,7 @@ const LAYER_ICONS: Record<
   biosphere: Leaf,
   structure: Building2,
   signals: Radio,
-  anomalies: AlertTriangle,
-  omni: Layers,
+  anomalies: AlertTriangle,        omni: Layers,
 };
 
 export default function Landing() {
@@ -132,12 +132,11 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
             className="mt-6 max-w-2xl text-base leading-relaxed text-[#a8cfe8]/80 sm:text-lg"
-          >
-            A Focus-style augmented reality overlay. Ten analysis layers —
-            history, hidden text, energy, weather, flow, biosphere, structure,
-            signals, anomalies — and an OMNI super layer that renders them all
-            at once. Every reading is computed live from real pixels and real
-            telemetry. No cloud bill. No subscription. Ever.
+          >              A Focus-style augmented reality overlay.              Ten analysis layers —
+              history, hidden text, energy, weather, flow, biosphere, structure,
+              signals, anomalies, and object scan — and an OMNI super layer that
+              renders them all at once. Every reading is computed live from real
+              pixels and real telemetry. No cloud bill. No subscription. Ever.
           </motion.p>
 
           <motion.div

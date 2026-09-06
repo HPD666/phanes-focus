@@ -56,22 +56,32 @@ function ObjectScanPanel({
 }: ObjectScanProps) {
   if (!hit) return null;
 
+  const exact = hit.source === "exact";
+  const matchTag = exact ? "MATCH CONFIRMED" : "INFERENCE";
+
   return (
     <div
       className={cn(
-        "pointer-events-auto flex h-full max-w-[320px] flex-col gap-2 overflow-hidden rounded-sm border border-white/10 bg-[#02060d]/75 p-4 backdrop-blur-sm",
-        "md:absolute md:right-4 md:top-[88px] md:z-30 md:h-[min(70vh,620px)]"
+        "pointer-events-auto flex h-full max-w-[340px] flex-col gap-3 overflow-hidden rounded-sm border border-white/10 bg-[#02060d]/80 p-4 backdrop-blur-sm",
+        "md:absolute md:right-4 md:top-[92px] md:z-30 md:h-[min(70vh,640px)]"
       )}
-      style={{ borderColor: `${accent}44` }}
+      style={{ borderColor: `${accent}48` }}
     >
       {/* header */}
       <div className="flex items-center gap-2">
         <Scan className="size-4 shrink-0" style={{ color: accent }} />
         <span className="font-display text-xs font-semibold tracking-[0.2em] text-white">
-          SCAN
+          PHANES · SCAN
         </span>
-        <span className="ml-auto font-mono text-[9px] text-white/40">
-          SNAP {hit.source === "exact" ? "EXACT" : "GENERIC"}
+        <span
+          className={cn(
+            "ml-auto font-mono text-[9px] uppercase tracking-[0.2em]",
+            exact
+              ? "text-[#7dff9b] border border-[#7dff9b]/30 bg-[#7dff9b]/8 px-1.5 py-0.5"
+              : "text-[#ffb454] border border-[#ffb454]/30 bg-[#ffb454]/8 px-1.5 py-0.5"
+          )}
+        >
+          {matchTag}
         </span>
         <button
           type="button"
@@ -84,37 +94,41 @@ function ObjectScanPanel({
       </div>
 
       {/* body */}
-      <div className="flex flex-col gap-2 overflow-y-auto">
+      <div className="flex flex-col gap-3 overflow-y-auto">
         {/* object name + match type */}
         <div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
-              OBJECT
+              PHANTOM ROW
             </span>
-            {hit.source === "exact" ? (
-              <span className="ml-auto font-mono text-[9px] text-[#7dff9b]">
-                EXACT
+            {exact ? (
+              <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.2em] text-[#7dff9b]">
+                EXACT MATCH
               </span>
             ) : (
-              <span className="ml-auto font-mono text-[9px] text-[#ffb454]">
-                GENERIC
+              <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.2em] text-[#ffb454]">
+                GENERIC CLASS
               </span>
             )}
           </div>
-          <h3 className="truncate font-display text-sm text-white">
+          <h3 className="truncate font-display text-base text-white">
             {hit.label}
           </h3>
-          {hit.description && (
-            <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-white/70">
+          {hit.description ? (
+            <p className="mt-1 line-clamp-4 text-[11px] leading-relaxed text-white/70">
               {hit.description}
+            </p>
+          ) : (
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/30">
+              NO ENRICHMENT YET
             </p>
           )}
         </div>
 
         {/* price */}
         {hit.price && (
-          <div className="flex items-center gap-2 rounded-sm border border-[#ffcf3f]/30 bg-[#ffcf3f]/5 px-2 py-1.5">
-            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#ffcf3f]/70">
+          <div className="flex items-center gap-2 rounded-sm border border-[#ffcf3f]/30 bg-[#ffcf3f]/6 px-2 py-1.5">
+            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#ffcf3f]/80">
               PRICE
             </span>
             <span className="font-mono text-sm text-[#ffcf3f]">
@@ -123,19 +137,18 @@ function ObjectScanPanel({
           </div>
         )}
 
-        {/* confidence */}
-        <div>
+        {/* confidence + optional source */}
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
               CONFIDENCE
             </span>
-            <div className="flex max-w-[140px] flex-1 flex-row group relative overflow-hidden rounded-full bg-white/5 px-1.5 py-0.5">
+            <div className="flex max-w-[160px] flex-1 flex-row group relative overflow-hidden rounded-full bg-white/5 px-1.5 py-0.5">
               <div
                 className="absolute inset-y-0 left-0 bg-white/15 transition-all duration-300"
                 style={{
                   width: `${hit.confidence * 100}%`,
-                  backgroundColor:
-                    hit.source === "exact" ? "#7dff9b" : accent,
+                  backgroundColor: exact ? "#7dff9b" : accent,
                 }}
               />
               <span className="relative z-10 font-mono text-[9px] text-white/80">
@@ -143,8 +156,9 @@ function ObjectScanPanel({
               </span>
             </div>
           </div>
-          {hit.url && (
-            <div className="mt-1 flex items-center gap-2">
+
+          {hit.url ? (
+            <div className="flex items-center gap-2">
               <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
                 SOURCE
               </span>
@@ -152,13 +166,28 @@ function ObjectScanPanel({
                 href={hit.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-auto font-mono text-[9px] text-[#9fd4f2]/80 underline underline-offset-2 hover:text-white"
+                className="ml-auto font-mono text-[9px] text-[#9fd4f2]/80 underline underline-offset-2 hover:text-white truncate max-w-[200px]"
               >
-                {hit.source}
+                {hit.url}
               </a>
             </div>
-          )}
+          ) : null}
         </div>
+
+        {/* bounding box note when present */}
+        {hit.box ? (
+          <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-white/[0.02] px-2 py-1.5">
+            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
+              LOCK
+            </span>
+            <span className="font-mono text-[10px] text-white/70">
+              BOX ACTIVE ·
+              {(hit.box.x * 100).toFixed(0)}%,
+              {(hit.box.y * 100).toFixed(0)}% ·
+              {(hit.box.w * 100).toFixed(0)}×{(hit.box.h * 100).toFixed(0)}%
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {/* actions */}
@@ -170,7 +199,7 @@ function ObjectScanPanel({
           className="flex-1 hud-label cursor-pointer rounded-sm border border-white/10 py-1 text-[10px] font-mono uppercase tracking-[0.2em] transition-colors hover:border-white/30 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {cooldown > 0
-            ? `SCAN TOOL OK · RESCAN IN ${Math.ceil(cooldown / 100)}s`
+            ? `SCAN TOOL READY · RESCAN IN ${Math.ceil(cooldown / 100)}s`
             : "RESCAN LIVE FRAME"}
         </button>
         <button

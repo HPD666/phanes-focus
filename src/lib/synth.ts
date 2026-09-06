@@ -62,10 +62,13 @@ export class SynthScene {
     ctx.strokeStyle = "#3b4a6b";
     ctx.strokeRect(cupX - cupR, cupY - cupR * 1.4, cupR * 2, cupR * 2.4);
 
-    ctx.font = "600 18px Space Grotesk, ui-sans-serif, system-ui, sans-serif";
+    ctx.font = "600 16px Space Grotesk, ui-sans-serif, system-ui, sans-serif";
     ctx.fillStyle = "#52e0ff";
     ctx.textAlign = "center";
-    ctx.fillText("SCANNER TEST OBJECT", 0, deskH * 0.65);
+    ctx.fillText("PHANES · FOCUS CALIBRATION TARGET", 0, deskH * 0.62);
+    ctx.fillStyle = "rgba(82,224,255,0.6)";
+    ctx.font = "600 11px Space Grotesk, ui-sans-serif, system-ui, sans-serif";
+    ctx.fillText("animated reference plane — not a real scene", 0, deskH * 0.62 + 18);
 
     ctx.restore();
   }
