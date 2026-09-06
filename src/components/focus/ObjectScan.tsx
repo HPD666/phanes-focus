@@ -60,7 +60,13 @@ function ObjectScanPanel({
 }: ObjectScanProps) {
   if (!hit && !pending) return null;
 
-  const exact = hit ? hit.source === "exact" : false;
+  const exact = Boolean(hit?.source === "exact");
+  const label = hit?.label ?? "";
+  const description = hit?.description;
+  const price = hit?.price;
+  const url = hit?.url;
+  const box = hit?.box;
+  const confidence = hit?.confidence ?? 0;
   const matchTag = pending
     ? "ANALYZING FRAME"
     : exact
@@ -84,9 +90,11 @@ function ObjectScanPanel({
         <span
           className={cn(
             "ml-auto font-mono text-[9px] uppercase tracking-[0.2em]",
-            exact
-              ? "text-[#7dff9b] border border-[#7dff9b]/30 bg-[#7dff9b]/8 px-1.5 py-0.5"
-              : "text-[#ffb454] border border-[#ffb454]/30 bg-[#ffb454]/8 px-1.5 py-0.5"
+            pending
+              ? "text-white/60 border border-white/15 bg-white/[0.04] px-1.5 py-0.5"
+              : exact
+                ? "text-[#7dff9b] border border-[#7dff9b]/30 bg-[#7dff9b]/8 px-1.5 py-0.5"
+                : "text-[#ffb454] border border-[#ffb454]/30 bg-[#ffb454]/8 px-1.5 py-0.5"
           )}
         >
           {matchTag}
@@ -103,98 +111,113 @@ function ObjectScanPanel({
 
       {/* body */}
       <div className="flex flex-col gap-3 overflow-y-auto">
-        {/* object name + match type */}
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
-              PHANTOM ROW
-            </span>
-            {exact ? (
-              <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.2em] text-[#7dff9b]">
-                EXACT MATCH
-              </span>
-            ) : (
-              <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.2em] text-[#ffb454]">
-                GENERIC CLASS
-              </span>
-            )}
-          </div>
-          <h3 className="truncate font-display text-base text-white">
-            {hit.label}
-          </h3>
-          {hit.description ? (
-            <p className="mt-1 line-clamp-4 text-[11px] leading-relaxed text-white/70">
-              {hit.description}
-            </p>
-          ) : (              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/30">
-              NO ENRICHMENT AVAILABLE
-            </p>
-          )}
-        </div>
-
-        {/* price */}
-        {hit.price && (
-          <div className="flex items-center gap-2 rounded-sm border border-[#ffcf3f]/30 bg-[#ffcf3f]/6 px-2 py-1.5">
-            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#ffcf3f]/80">
-              PRICE
-            </span>
-            <span className="font-mono text-sm text-[#ffcf3f]">
-              {hit.price}
-            </span>
-          </div>
-        )}
-
-        {/* confidence + optional source */}
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
-              CONFIDENCE
-            </span>
-            <div className="flex max-w-[160px] flex-1 flex-row group relative overflow-hidden rounded-full bg-white/5 px-1.5 py-0.5">
-              <div
-                className="absolute inset-y-0 left-0 bg-white/15 transition-all duration-300"
-                style={{
-                  width: `${hit.confidence * 100}%`,
-                  backgroundColor: exact ? "#7dff9b" : accent,
-                }}
-              />
-              <span className="relative z-10 font-mono text-[9px] text-white/80">
-                {Math.round(hit.confidence * 100)}%
-              </span>
-            </div>
-          </div>
-
-          {hit.url ? (
+        {pending ? (
+          <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
-                SOURCE
-              </span>
-              <a
-                href={hit.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-auto font-mono text-[9px] text-[#9fd4f2]/80 underline underline-offset-2 hover:text-white truncate max-w-[200px]"
-              >
-                {hit.url}
-              </a>
+              <Loader2 className="size-4 animate-spin" style={{ color: accent }} />
+              <span className="hud-label">Reading frame…</span>
             </div>
-          ) : null}
-        </div>
-
-        {/* bounding box note when present */}
-        {hit.box ? (
-          <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-white/[0.02] px-2 py-1.5">
-            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
-              LOCK
-            </span>
-            <span className="font-mono text-[10px] text-white/70">
-              BOX ACTIVE ·
-              {(hit.box.x * 100).toFixed(0)}%,
-              {(hit.box.y * 100).toFixed(0)}% ·
-              {(hit.box.w * 100).toFixed(0)}×{(hit.box.h * 100).toFixed(0)}%
-            </span>
+            <p className="text-[11px] leading-relaxed text-white/70">
+              Phanes extracts the dominant object from the live frame and looks it up.
+            </p>
           </div>
-        ) : null}
+        ) : (
+          <>
+            {/* object name + match type */}
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
+                  PHANTOM ROW
+                </span>
+                {exact ? (
+                  <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.2em] text-[#7dff9b]">
+                    EXACT MATCH
+                  </span>
+                ) : (
+                  <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.2em] text-[#ffb454]">
+                    GENERIC CLASS
+                  </span>
+                )}
+              </div>
+              <h3 className="truncate font-display text-base text-white">
+                {label}
+              </h3>
+              {description ? (
+                <p className="mt-1 line-clamp-4 text-[11px] leading-relaxed text-white/70">
+                  {description}
+                </p>
+              ) : (
+                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/30">
+                  NO ENRICHMENT AVAILABLE
+                </p>
+              )}
+            </div>
+
+            {/* price */}
+            {price && (
+              <div className="flex items-center gap-2 rounded-sm border border-[#ffcf3f]/30 bg-[#ffcf3f]/6 px-2 py-1.5">
+                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#ffcf3f]/80">
+                  PRICE
+                </span>
+                <span className="font-mono text-sm text-[#ffcf3f]">
+                  {price}
+                </span>
+              </div>
+            )}
+
+            {/* confidence + optional source */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
+                  CONFIDENCE
+                </span>
+                <div className="flex max-w-[160px] flex-1 flex-row group relative overflow-hidden rounded-full bg-white/5 px-1.5 py-0.5">
+                  <div
+                    className="absolute inset-y-0 left-0 bg-white/15 transition-all duration-300"
+                    style={{
+                      width: `${confidence * 100}%`,
+                      backgroundColor: exact ? "#7dff9b" : accent,
+                    }}
+                  />
+                  <span className="relative z-10 font-mono text-[9px] text-white/80">
+                    {Math.round(confidence * 100)}%
+                  </span>
+                </div>
+              </div>
+
+              {url ? (
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
+                    SOURCE
+                  </span>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto font-mono text-[9px] text-[#9fd4f2]/80 underline underline-offset-2 hover:text-white truncate max-w-[200px]"
+                  >
+                    {url}
+                  </a>
+                </div>
+              ) : null}
+            </div>
+
+            {/* bounding box note when present */}
+            {box && (
+              <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-white/[0.02] px-2 py-1.5">
+                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
+                  LOCK
+                </span>
+                <span className="font-mono text-[10px] text-white/70">
+                  BOX ACTIVE ·
+                  {(box.x * 100).toFixed(0)}%,
+                  {(box.y * 100).toFixed(0)}% ·
+                  {(box.w * 100).toFixed(0)}×{(box.h * 100).toFixed(0)}%
+                </span>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* actions */}

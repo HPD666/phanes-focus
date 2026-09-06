@@ -132,11 +132,12 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
             className="mt-6 max-w-2xl text-base leading-relaxed text-[#a8cfe8]/80 sm:text-lg"
-          >              A Focus-style augmented reality overlay.              Ten analysis layers —
+          >              A Focus-style augmented reality overlay.              Ten analysis layers, plus live object identification,
               history, hidden text, energy, weather, flow, biosphere, structure,
               signals, anomalies — and an OMNI super layer that renders them all
-              at once. Every reading is computed live from real pixels and real
-              telemetry. No cloud bill. No subscription. Ever.
+              at once. Every layer is computed live from real pixels and real
+              telemetry, and Phanes can identify the main object in the live frame,
+              lock it in a scan box, and look up what it is. No cloud bill. No subscription. Ever.
           </motion.p>
 
           <motion.div
