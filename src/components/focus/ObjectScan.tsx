@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Scan, Crosshair, RefreshCw, X } from "lucide-react";
 import type { Hit } from "@/convex/objectScan";
-import type { LiveDetection } from "@/hooks/use-object-detection";
+import type { DetectedObject } from "@/hooks/use-object-detection";
 import { cn } from "@/lib/utils";
 
 interface ObjectScanProps {
@@ -12,7 +12,7 @@ interface ObjectScanProps {
   cooldown: number;
   onDismiss: () => void;
   onRescan: () => void;
-  allDetections?: LiveDetection[];
+  allDetections?: DetectedObject[];
 }
 
 export function ObjectScan({
@@ -209,7 +209,7 @@ function LiveDetectionsList({
   detections,
   accent,
 }: {
-  detections: LiveDetection[];
+  detections: DetectedObject[];
   accent: string;
 }) {
   return (
