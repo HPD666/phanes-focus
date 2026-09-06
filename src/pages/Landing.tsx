@@ -22,7 +22,6 @@ import { SynthScene } from "@/lib/synth";
 import { ACTIVE_LAYERS } from "@/lib/layers";
 import { useAuth } from "@/hooks/use-auth";
 
-
 const LAYER_ICONS: Record<
   (typeof ACTIVE_LAYERS)[number]["id"],
   typeof Scan
@@ -36,7 +35,8 @@ const LAYER_ICONS: Record<
   biosphere: Leaf,
   structure: Building2,
   signals: Radio,
-  anomalies: AlertTriangle,        omni: Layers,
+  anomalies: AlertTriangle,
+  omni: Layers,
 };
 
 export default function Landing() {
@@ -132,12 +132,17 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
             className="mt-6 max-w-2xl text-base leading-relaxed text-[#a8cfe8]/80 sm:text-lg"
-          >              A Focus-style augmented reality overlay.              Ten analysis layers, plus live object identification,
-              history, hidden text, energy, weather, flow, biosphere, structure,
-              signals, anomalies — and an OMNI super layer that renders them all
-              at once. Every layer is computed live from real pixels and real
-              telemetry, and Phanes can identify the main object in the live frame,
-              lock it in a scan box, and look up what it is. No cloud bill. No subscription. Ever.
+          >
+            A Focus-style augmented reality overlay. Ten analysis layers, plus
+            live object identification from the current frame, history from your
+            archived captures, hidden text via on-device OCR, energy, weather,
+            flow, biosphere, structure, signals, anomalies — and an OMNI super
+            layer that renders them all at once.
+            The object scan is the real on-device read Phanes can make from the
+            live frame: a classified box with a confidence bar and an honest
+            description of what the frame actually shows.
+            Every layer is computed live from real pixels and real telemetry.
+            No cloud bill. No subscription. Ever.
           </motion.p>
 
           <motion.div
@@ -285,7 +290,8 @@ export default function Landing() {
               each frame — luminance, contrast, Sobel edge mass, vegetation
               signal, color saliency, inter-frame motion — then maps the
               results to layers and flags anomalies against your own capture
-              baseline.
+              baseline. The object scan is the same pipeline's real attempt to
+              describe the dominant region in the current frame.
             </p>
             <ul className="mt-7 space-y-3">
               {[
@@ -309,6 +315,10 @@ export default function Landing() {
                   icon: ShieldCheck,
                   text: "Optional opt-in cloud brain (Vly integrations) — Phanes works without it.",
                 },
+                {
+                  icon: Scan,
+                  text: "Real object scan reads the dominant frame region and says only what it can justify.",
+                },
               ].map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-start gap-3 text-[13.5px] text-white/75">
                   <Icon className="mt-0.5 size-4 shrink-0 text-[#52e0ff]" />
@@ -327,6 +337,7 @@ export default function Landing() {
               ["[motion]", "inter-frame delta vs previous pass", "#ff8fa3"],
               ["[ocr]", "tesseract.js on-device word extraction", "#c3a1ff"],
               ["[weather]", "open-meteo current conditions (lat, lng)", "#6fb5ff"],
+              ["[scan]", "dominant region classification + confidence box", "#7dff9b"],
               ["[layers]", "map features → 10 layer planes", "#7dff9b"],
               ["[baseline]", "mean of your archived captures", "#ffb454"],
               ["[anomaly]", "z-score deviations vs baseline", "#ff5d6c"],
@@ -339,8 +350,9 @@ export default function Landing() {
             ))}
             <div className="mt-4 border-t border-white/10 pt-3 text-[10px] text-white/40">
               Phanes works forever at zero cost — on-device engine, free weather
-              link, free Convex tier. No SambaNova, no paid keys. An optional
-              Vly integration provides an opt-in cloud brain that stays free.
+              link, free Convex tier. No SambaNova, no paid keys. The object scan
+              is the real on-device read from the current frame; an optional Vly
+              integration provides an opt-in cloud brain that stays free.
             </div>
           </div>
         </div>
@@ -384,7 +396,7 @@ export default function Landing() {
             <span className="font-display text-sm font-semibold tracking-[0.25em]">PHANES</span>
           </div>
           <p className="hud-label text-white/35">
-            Focus Intelligence · on-device analysis · free forever
+            Focus Intelligence · on-device analysis · real scan from the live frame · free forever
           </p>
         </div>
       </footer>

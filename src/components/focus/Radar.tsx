@@ -1,4 +1,4 @@
-import { Radar, Wifi, Loader2 } from "lucide-react";
+import { Wifi, Loader2 } from "lucide-react";
 import type { FrameMetrics } from "@/lib/vision";
 import { cn } from "@/lib/utils";
 
@@ -85,7 +85,7 @@ export function Radar({ metrics, anomalies, accent }: RadarProps) {
       <div className="flex flex-col items-center gap-1 text-white select-none">
         {live ? (
           <>
-            <Radar className="size-3.5" style={{ color: accent }} />
+            <RadarIcon className="size-3.5" style={{ color: accent }} />
             <span className="font-mono text-[8px] uppercase tracking-[0.18em] text-white/70">
               SIGNAL LIVE
             </span>
@@ -132,5 +132,27 @@ export function Radar({ metrics, anomalies, accent }: RadarProps) {
         </div>
       )}
     </div>
+  );
+}
+
+function RadarIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn("shrink-0", className)}
+      style={style}
+    >
+      <path d="M19 12a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4" />
+      <path d="M12 2v4" />
+      <path d="M12 18v4" />
+      <path d="M2 12h4" />
+      <path d="M18 12h4" />
+      <circle cx="12" cy="12" r="3" fill="currentColor" />
+    </svg>
   );
 }
