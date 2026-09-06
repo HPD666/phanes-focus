@@ -308,7 +308,7 @@ export default function Landing() {
                 },
                 {
                   icon: ShieldCheck,
-                  text: "Optional free-tier cloud brain (SambaNova) — Phanes works without it.",
+                  text: "Optional opt-in cloud brain (Vly integrations) — Phanes works without it.",
                 },
               ].map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-start gap-3 text-[13.5px] text-white/75">
@@ -339,9 +339,9 @@ export default function Landing() {
               </div>
             ))}
             <div className="mt-4 border-t border-white/10 pt-3 text-[10px] text-white/40">
-              Phanes works forever at zero cost — local engine, free weather
-              link, free Convex tier. An optional SambaNova key unlocks deeper
-              LLM reasoning on the same telemetry.
+              Phanes works forever at zero cost — on-device engine, free weather
+              link, free Convex tier. No SambaNova, no paid keys. An optional
+              Vly integration provides an opt-in cloud brain that stays free.
             </div>
           </div>
         </div>

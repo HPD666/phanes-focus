@@ -15,7 +15,7 @@ import { fetchWeather, type WeatherNow } from "@/lib/weather";
 import type { AiContext } from "@/lib/ai";
 import { distanceM, formatTime } from "@/lib/geo";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -46,6 +46,13 @@ export default function Focus() {
   const activity = useQuery(api.captures.recentActivity);
   const createCapture = useMutation(api.captures.create);
   const cloudAsk = useAction(api.captures.ask);
+
+  // Cloud brain is opt-in only. Available when the project's Vly
+  // integration key is present (shipped automatically). Disabled by
+  // default so Phanes is free forever with no paid dependency.
+  const [cloudEnabled, setCloudEnabled] = useState(false);
+  const cloudAvailable = Boolean(cloudAsk);
+  const onToggleCloud = useCallback(() => setCloudEnabled((v) => !v), []);
 
   const activeOcr = activeLayer === "inscriptions" || activeLayer === "omni";
   const { items: ocrItems, status: ocrStatus } = useOcr(activeOcr, frameCanvas);
@@ -229,6 +236,9 @@ export default function Focus() {
         onToggleAi={() => setAiOpen((v) => !v)}
         onExit={() => navigate("/")}
         onOpenGallery={() => navigate("/gallery")}
+        cloudAvailable={cloudAvailable}
+        cloudEnabled={cloudEnabled}
+        onToggleCloud={onToggleCloud}
       />
 
       {/* radar */}
@@ -259,7 +269,15 @@ export default function Focus() {
       <LayerBar active={activeLayer} onSelect={setActiveLayer} />
 
       {/* AI panel */}
-      <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} ctx={aiCtx} cloudAsk={cloudAsk} />
+      <AiPanel
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        ctx={aiCtx}
+        cloudAsk={cloudAsk}
+        cloudAvailable={cloudAvailable}
+        cloudEnabled={cloudEnabled}
+        onToggleCloud={onToggleCloud}
+      />
     </div>
   );
 }

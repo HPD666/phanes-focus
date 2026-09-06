@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Bot, CornerDownLeft, Loader2, Sparkles, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { phanesAnswer, buildSceneBrief, type AiContext } from "@/lib/ai";
 
 interface Message {
@@ -14,6 +14,9 @@ interface AiPanelProps {
   onClose: () => void;
   ctx: AiContext;
   cloudAsk: ((args: { prompt: string; scene: string }) => Promise<string | null>) | null;
+  cloudAvailable: boolean;
+  cloudEnabled: boolean;
+  onToggleCloud: () => void;
 }
 
 const SUGGESTIONS = [
@@ -24,44 +27,81 @@ const SUGGESTIONS = [
   "What is the history here?",
 ];
 
-export function AiPanel({ open, onClose, ctx, cloudAsk }: AiPanelProps) {
+function EngineBadge({
+  engine,
+  cloudAvailable,
+}: {
+  engine: "local" | "cloud";
+  cloudAvailable: boolean;
+}) {
+  if (engine === "cloud") {
+    return (
+      <span className="hud-label rounded-sm border border-white/10 px-1.5 py-0.5">
+        CLOUD BRAIN (OPT-IN)
+      </span>
+    );
+  }
+  return (
+    <span className="hud-label rounded-sm border border-white/10 px-1.5 py-0.5">
+      {cloudAvailable ? "ON-DEVICE · CLOUD READY" : "ON-DEVICE"}
+    </span>
+  );
+}
+
+export function AiPanel({
+  open,
+  onClose,
+  ctx,
+  cloudAsk,
+  cloudAvailable,
+  cloudEnabled,
+  onToggleCloud,
+}: AiPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [engine, setEngine] = useState<"local" | "cloud">("local");
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, thinking]);
 
-  const send = async (raw?: string) => {
-    const text = (raw ?? input).trim();
-    if (!text || thinking) return;
-    setInput("");
-    setMessages((m) => [...m, { role: "user", text, engine: "local" }]);
-    setThinking(true);
-    try {
-      let answer: string | null = null;
-      if (cloudAsk) {
-        try {
-          answer = await cloudAsk({ prompt: text, scene: buildSceneBrief(ctx) });
-        } catch {
-          answer = null;
+  const send = useCallback(
+    async (raw?: string) => {
+      const text = (raw ?? input).trim();
+      if (!text || thinking) return;
+      setInput("");
+      setMessages((m) => [...m, { role: "user", text, engine }]);
+      setThinking(true);
+      try {
+        let answer: string | null = null;
+        if (engine === "cloud" && cloudAsk) {
+          try {
+            answer = await cloudAsk({ prompt: text, scene: buildSceneBrief(ctx) });
+          } catch {
+            answer = null;
+          }
         }
+        if (answer) {
+          setMessages((m) => [...m, { role: "ai", text: answer, engine: "cloud" }]);
+        } else {
+          await new Promise((r) => setTimeout(r, 650));
+          setMessages((m) => [
+            ...m,
+            { role: "ai", text: phanesAnswer(text, ctx), engine: "local" },
+          ]);
+        }
+      } finally {
+        setThinking(false);
       }
-      if (answer) {
-        setMessages((m) => [...m, { role: "ai", text: answer, engine: "cloud" }]);
-      } else {
-        await new Promise((r) => setTimeout(r, 650));
-        setMessages((m) => [
-          ...m,
-          { role: "ai", text: phanesAnswer(text, ctx), engine: "local" },
-        ]);
-      }
-    } finally {
-      setThinking(false);
-    }
-  };
+    },
+    [input, engine, ctx, cloudAsk],
+  );
+
+  const toggleEngine = useCallback(() => {
+    setEngine((v) => (v === "cloud" ? "local" : "cloud"));
+  }, []);
 
   return (
     <AnimatePresence>
@@ -73,17 +113,28 @@ export function AiPanel({ open, onClose, ctx, cloudAsk }: AiPanelProps) {
           transition={{ type: "spring", stiffness: 320, damping: 32 }}
           className="pointer-events-auto absolute inset-y-0 right-0 z-40 flex w-[min(92vw,380px)] flex-col border-l border-white/10 bg-[#03080f]/92 backdrop-blur-md"
         >
+          {/* header */}
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <div className="flex items-center gap-2">
-              <Bot className="size-4" style={{ color: ctx.layer === "omni" ? "#e8f6ff" : "#52e0ff" }} />
+              <Bot
+                className="size-4"
+                style={{ color: ctx.layer === "omni" ? "#e8f6ff" : "#52e0ff" }}
+              />
               <span className="font-display text-sm font-semibold tracking-[0.2em] text-white">
                 PHANES INTELLIGENCE
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="hud-label rounded-sm border border-white/10 px-1.5 py-0.5">
-                {cloudAsk ? "CLOUD BRAIN" : "ON-DEVICE"}
-              </span>
+              <EngineBadge engine={engine} cloudAvailable={cloudAvailable} />
+              {cloudAvailable && (
+                <button
+                  type="button"
+                  onClick={toggleEngine}
+                  className="hud-label rounded-sm border border-white/10 px-2 py-0.5 text-white/70 transition-colors hover:border-white/30"
+                >
+                  {engine === "cloud" ? "Switch to on-device" : "Try cloud brain (opt-in)"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onClose}
@@ -94,12 +145,23 @@ export function AiPanel({ open, onClose, ctx, cloudAsk }: AiPanelProps) {
             </div>
           </div>
 
+          {/* messages */}
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {open && messages.length === 0 && (
-              <div className="mr-6 rounded-sm border-l-2 px-3 py-2 text-[12.5px] leading-relaxed text-[#cfeaff]/90" style={{ borderColor: ctx.layer === "omni" ? "#e8f6ff" : "#52e0ff" }}>
+              <div
+                className="mr-6 rounded-sm border-l-2 px-3 py-2 text-[12.5px] leading-relaxed text-[#cfeaff]/90"
+                style={{
+                  borderColor: ctx.layer === "omni" ? "#e8f6ff" : "#52e0ff",
+                }}
+              >
                 <div className="mb-1 flex items-center gap-1.5">
-                  <Sparkles className="size-3" style={{ color: ctx.layer === "omni" ? "#e8f6ff" : "#52e0ff" }} />
-                  <span className="hud-label">Phanes · local</span>
+                  <Sparkles
+                    className="size-3"
+                    style={{ color: ctx.layer === "omni" ? "#e8f6ff" : "#52e0ff" }}
+                  />
+                  <span className="hud-label">
+                    Phanes · {engine === "cloud" ? "cloud (opt-in)" : "on-device"}
+                  </span>
                 </div>
                 <pre className="whitespace-pre-wrap font-sans">{phanesAnswer("status", ctx)}</pre>
               </div>
@@ -112,12 +174,23 @@ export function AiPanel({ open, onClose, ctx, cloudAsk }: AiPanelProps) {
                     ? "ml-8 rounded-sm border border-white/10 bg-white/5 px-3 py-2 text-[12.5px] leading-relaxed text-white/90"
                     : "mr-6 rounded-sm border-l-2 px-3 py-2 text-[12.5px] leading-relaxed text-[#cfeaff]/90"
                 }
-                style={m.role === "ai" ? { borderColor: ctx.layer === "omni" ? "#e8f6ff" : "#52e0ff" } : undefined}
+                style={
+                  m.role === "ai"
+                    ? { borderColor: ctx.layer === "omni" ? "#e8f6ff" : "#52e0ff" }
+                    : undefined
+                }
               >
                 <div className="mb-1 flex items-center gap-1.5">
-                  <Sparkles className="size-3" style={{ color: ctx.layer === "omni" ? "#e8f6ff" : "#52e0ff" }} />
+                  <Sparkles
+                    className="size-3"
+                    style={{ color: ctx.layer === "omni" ? "#e8f6ff" : "#52e0ff" }}
+                  />
                   <span className="hud-label">
-                    {m.role === "ai" ? `Phanes · ${m.engine === "cloud" ? "cloud" : "local"}` : "Operator"}
+                    {m.role === "ai"
+                      ? m.engine === "cloud"
+                        ? "Phanes · cloud (opt-in)"
+                        : "Phanes · on-device"
+                      : "Operator"}
                   </span>
                 </div>
                 <pre className="whitespace-pre-wrap font-sans">{m.text}</pre>
@@ -131,6 +204,7 @@ export function AiPanel({ open, onClose, ctx, cloudAsk }: AiPanelProps) {
             )}
           </div>
 
+          {/* input */}
           <div className="border-t border-white/10 px-4 py-3">
             <div className="mb-2 flex flex-wrap gap-1.5">
               {SUGGESTIONS.map((s) => (
@@ -144,6 +218,15 @@ export function AiPanel({ open, onClose, ctx, cloudAsk }: AiPanelProps) {
                 </button>
               ))}
             </div>
+
+            <p className="mb-2 hud-label text-white/35">
+              {engine === "cloud"
+                ? "Cloud brain active · on-device still answers if the cloud is down"
+                : cloudAvailable
+                  ? "On-device engine active · flip to try the optional cloud brain"
+                  : "On-device engine active · answers from live telemetry only"}
+            </p>
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -165,11 +248,11 @@ export function AiPanel({ open, onClose, ctx, cloudAsk }: AiPanelProps) {
                 <CornerDownLeft className="size-4" />
               </button>
             </form>
+
             <p className="mt-2 text-[9.5px] leading-relaxed text-white/35">
-              On-device engine answers only from live telemetry. Optional cloud
-              brain runs through SambaNova (free tier) and, when that is
-              unavailable, the Vly integration gateway — both free, both wired
-              behind the same ask action. No subscription, ever.
+              On-device engine answers only from live telemetry — free forever, no keys,
+              no bill. Cloud brain is an optional opt-in behind the Vly integration key;
+              SambaNova has been removed to keep Phanes permanently free.
             </p>
           </div>
         </motion.aside>

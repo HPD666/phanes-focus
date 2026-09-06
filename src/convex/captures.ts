@@ -1,7 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { vly } from "../lib/vly-integrations";
 
 const hotspot = v.object({
   x: v.number(),
@@ -119,17 +118,20 @@ export const recentActivity = query({
 
 /** Optional cloud-brain for the Phanes assistant.
  *
- * Two interchangeable cloud providers, tried in order so Phanes keeps working
- * even if one provider is down or its key is missing:
+ * Phanes is designed to be free forever with no paid dependencies, so the
+ * default, always-on brain is the on-device engine in `src/lib/ai.ts`, which
+ * answers the operator using ONLY real live telemetry — no API key, no cloud
+ * bill, no outage surface.
  *
- * 1. SambaNova (free tier, open models) — configured with SAMBANOVA_API_KEY
- *    in the project keys. OpenAI-compatible endpoint, Meta-Llama 3.1 70B.
- * 2. Vly Integrations (free tier, billed through the Vly project key) —
- *    the project's VLY_INTEGRATION_KEY is already injected, so no extra key
- *    is required. Falls back here when SambaNova is unavailable.
+ * This action exists as an OPTIONAL user opt-in only. If the operator
+ * explicitly enables a cloud provider in the AI panel, this action is called.
+ * The only provider wired here is the Vly integration gateway (already present
+ * via the project's VLY_INTEGRATION_KEY). SambaNova has been removed because
+ * it is a paid-tier path that breaks the free-forever goal.
  *
- * When neither provider is available the action returns null and the client
- * uses the on-device engine, so Phanes works forever at zero cost either way.
+ * If no cloud provider has been chosen, or the call fails, this action returns
+ * null and the client falls back to the on-device engine — which keeps Phanes
+ * fully functional and free forever at zero cost.
  */
 export const ask = action({
   args: {
@@ -137,51 +139,15 @@ export const ask = action({
     scene: v.string(), // compact JSON context assembled by the client
   },
   handler: async (_ctx, args) => {
-    const sambanovaKey = process.env.SAMBANOVA_API_KEY;
-
-    // Provider 1 — SambaNova (open model, free tier)
-    if (sambanovaKey) {
-      try {
-        const res = await fetch("https://api.sambanova.ai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${sambanovaKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "meta-llama/Llama-3.1-70B-Instruct",
-            temperature: 0.4,
-            max_tokens: 500,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are PHANES, the on-head AI of a Focus-style augmented-reality device. " +
-                  "Answer the operator about their current scene using ONLY the supplied telemetry. " +
-                  "Be precise, terse, and a little technical, like a HUD assistant. Never invent data " +
-                  "that is not in the context. Format with short lines, no markdown headers.",
-              },
-              {
-                role: "user",
-                content: `SCENE TELEMETRY:\n${args.scene}\n\nOPERATOR QUESTION:\n${args.prompt}`,
-              },
-            ],
-          }),
-        });
-        if (res.ok) {
-          const data = (await res.json()) as {
-            choices?: { message?: { content?: string } }[];
-          };
-          const content = data.choices?.[0]?.message?.content ?? null;
-          if (content) return content;
-        }
-      } catch {
-        // SambaNova failed — fall through to the Vly provider
-      }
+    // Cloud brain is opt-in only. Enabled from the AI panel via the
+    // VLY_INTEGRATION_KEY that ships with this project.
+    const vlyKey = process.env.VLY_INTEGRATION_KEY;
+    if (!vlyKey) {
+      return null;
     }
 
-    // Provider 2 — Vly Integrations (free tier, already wired via VLY_INTEGRATION_KEY)
     try {
+      const { vly } = await import("../lib/vly-integrations");
       const result = await vly.ai.completion({
         model: "gpt-5",
         messages: [
@@ -205,7 +171,7 @@ export const ask = action({
         return result.data.choices[0].message.content;
       }
     } catch {
-      // Vly also failed — fall through to on-device engine
+      // cloud brain unavailable — fall back to on-device engine
     }
 
     return null;

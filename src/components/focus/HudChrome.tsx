@@ -21,6 +21,9 @@ interface HudChromeProps {
   onToggleAi: () => void;
   onExit: () => void;
   onOpenGallery: () => void;
+  cloudAvailable: boolean;
+  cloudEnabled: boolean;
+  onToggleCloud: () => void;
 }
 
 export function HudChrome({
@@ -39,6 +42,9 @@ export function HudChrome({
   onToggleAi,
   onExit,
   onOpenGallery,
+  cloudAvailable,
+  cloudEnabled,
+  onToggleCloud,
 }: HudChromeProps) {
   const feedLabel = feed === "camera" ? "CAM" : feed === "synthetic" ? "SIM" : "OFF";
   return (
@@ -140,6 +146,14 @@ export function HudChrome({
           >
             <History className="size-3" style={{ color: accent }} />
             Archive
+          </button>
+          <button
+            type="button"
+            onClick={onToggleCloud}
+            className="hud-label pointer-events-auto flex cursor-pointer items-center gap-1 rounded-sm border border-white/10 px-2 py-1 transition-colors hover:border-white/30"
+          >
+            <Bot className="size-3" style={{ color: cloudEnabled ? "#ffcf3f" : accent }} />
+            {cloudEnabled ? "Cloud ON" : cloudAvailable ? "Cloud +" : "Cloud OFF"}
           </button>
         </div>
       </div>
