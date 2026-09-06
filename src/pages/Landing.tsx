@@ -197,7 +197,8 @@ export default function Landing() {
           <div className="hud-label mb-3 text-[#52e0ff]">// SELECT A LAYER</div>
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-5xl">
             Ten layers. One reality.
-          </h2>            <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-[#8fb8d8]/70">
+          </h2>
+          <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-[#8fb8d8]/70">
             Pick a layer from the Focus bar and the scene re-interprets itself.
             History ghost-pastes your past captures. Inscriptions reads the
             text around you with on-device OCR. OMNI renders every layer at
