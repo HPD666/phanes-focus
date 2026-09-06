@@ -43,39 +43,14 @@ export default function Focus() {
   const [time, setTime] = useState(() => formatTime(Date.now()));
   const [weather, setWeather] = useState<WeatherNow | null>(null);
   const [scanHit, setScanHit] = useState<import("@/convex/objectScan").Hit | null>(null);
-  const [scanCooldown, setScanCooldown] = useState(0);
-  const scanCooldownRef = useRef(scanCooldown);
-  scanCooldownRef.current = scanCooldown;
+  const scanFrameRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Live object scan: runs on the visible layer when the optics are on a
-  // scan-capable layer. The cooldown is derived from the current state so
-  // both the effect and the HUD button share one cooldown clock.
-  useEffect(() => {
-    if (scanCooldownRef.current > 0) {
-      const t = setTimeout(() => setScanCooldown((n) => Math.max(0, n - 100)), 100);
-      return () => clearTimeout(t);
-    }
-  }, [scanCooldownRef.current]);
-  const scanCooldownRef = useRef(scanCooldown);
-  scanCooldownRef.current = scanCooldown;
-
-  // Live object scan: runs on the visible layer when the optics are on a
-  // scan-capable layer. The cooldown is derived from the current state so
-  // both the effect and the HUD button share one cooldown clock.
-  useEffect(() => {
-    if (scanCooldownRef.current > 0) {
-      const t = setTimeout(() => setScanCooldown((n) => Math.max(0, n - 100)), 100);
-      return () => clearTimeout(t);
-    }
-  }, [scanCooldownRef.current]);
-
+  const captures = useQuery(api.captures.listForUser);
   const captures = useQuery(api.captures.listForUser);
   const activity = useQuery(api.captures.recentActivity);
   const createCapture = useMutation(api.captures.create);
   const identifyObject = useAction(api.objectScan.identifyObject);
   const cloudAsk = useAction(api.captures.ask);
-
-  const layerCanScan = activeLayer === "core" || activeLayer === "omni";
 
   const layerCanScan = activeLayer === "core" || activeLayer === "omni";
 
@@ -247,7 +222,21 @@ export default function Focus() {
       />
 
       {/* object scan HUD overlay */}
-      <ObjectScan hit={scanHit} accent={layer.color} />
+      <ObjectScan
+        hit={scanHit}
+        accent={layer.color}
+        onDismiss={() => setScanHit(null)}
+        onRescan={() => {
+          if (scanCooldown.current > 0 || !frameCanvas) return;
+          scanCooldown.current = 1400;
+          const dataUrl = frameCanvas.toDataURL("image/jpeg", 0.7);
+          identifyObject({ thumbBase64: dataUrl }).then((hit) => {
+            if (hit) setScanHit(hit as import("@/convex/objectScan").Hit);
+          });
+        }}
+        canScan={layerCanScan}
+        cooldown={scanCooldown.current}
+      />
 
       {/* layer data over the feed */}
       <LayerOverlays
