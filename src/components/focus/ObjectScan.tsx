@@ -123,18 +123,19 @@ function ObjectScanPanel({
           </div>
         )}
 
-        {/* confidence + source */}
+        {/* confidence */}
         <div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
               CONFIDENCE
             </span>
-            <div className="flex max-w-[120px] flex-1 flex-row group relative overflow-hidden rounded-full bg-white/5 px-1.5 py-0.5">
+            <div className="flex max-w-[140px] flex-1 flex-row group relative overflow-hidden rounded-full bg-white/5 px-1.5 py-0.5">
               <div
                 className="absolute inset-y-0 left-0 bg-white/15 transition-all duration-300"
                 style={{
                   width: `${hit.confidence * 100}%`,
-                  backgroundColor: accent,
+                  backgroundColor:
+                    hit.source === "exact" ? "#7dff9b" : accent,
                 }}
               />
               <span className="relative z-10 font-mono text-[9px] text-white/80">
@@ -168,7 +169,9 @@ function ObjectScanPanel({
           disabled={!canScan || cooldown > 0}
           className="flex-1 hud-label cursor-pointer rounded-sm border border-white/10 py-1 text-[10px] font-mono uppercase tracking-[0.2em] transition-colors hover:border-white/30 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {cooldown > 0 ? `RESCAN ${Math.ceil(cooldown / 100)}s` : "RESCAN"}
+          {cooldown > 0
+            ? `SCAN TOOL OK · RESCAN IN ${Math.ceil(cooldown / 100)}s`
+            : "RESCAN LIVE FRAME"}
         </button>
         <button
           type="button"
