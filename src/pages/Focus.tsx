@@ -5,6 +5,7 @@ import { Radar } from "@/components/focus/Radar";
 import { ReadoutPanel } from "@/components/focus/ReadoutPanel";
 import { CaptureButton } from "@/components/focus/CaptureButton";
 import { AiPanel } from "@/components/focus/AiPanel";
+import { ObjectScan } from "@/components/focus/ObjectScan";
 import { LayerOverlays, type HistoryCapture, type ActivityPing } from "@/components/focus/LayerOverlays";
 import { useScene } from "@/hooks/use-scene";
 import { useOcr } from "@/hooks/use-ocr";
@@ -41,10 +42,12 @@ export default function Focus() {
   const [aiOpen, setAiOpen] = useState(false);
   const [time, setTime] = useState(() => formatTime(Date.now()));
   const [weather, setWeather] = useState<WeatherNow | null>(null);
+  const [scanHit, setScanHit] = useState<import("@/convex/objectScan").Hit | null>(null);
 
   const captures = useQuery(api.captures.listForUser);
   const activity = useQuery(api.captures.recentActivity);
   const createCapture = useMutation(api.captures.create);
+  const identifyObject = useAction(api.objectScan.identifyObject);
   const cloudAsk = useAction(api.captures.ask);
 
   // Cloud brain is opt-in only. Available when the project's Vly
@@ -184,6 +187,16 @@ export default function Focus() {
     } catch {
       toast.error("Failed to archive capture");
     }
+
+    // Object scan: identify the primary object in the captured frame and
+    // show it in the HUD if the provider returns a hit.
+    if (shot.thumb) {
+      setScanHit(null);
+      const hit = await identifyObject({ thumbBase64: shot.thumb });
+      if (hit) {
+        setScanHit(hit as import("@/convex/objectScan").Hit);
+      }
+    }
   };
 
   return (
@@ -203,6 +216,9 @@ export default function Focus() {
         ref={sceneCanvasRef}
         className={`absolute inset-0 size-full ${feed === "synthetic" ? "" : "hidden"}`}
       />
+
+      {/* object scan HUD overlay */}
+      <ObjectScan hit={scanHit} accent={layer.color} />
 
       {/* layer data over the feed */}
       <LayerOverlays
