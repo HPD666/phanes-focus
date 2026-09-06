@@ -43,9 +43,8 @@ export default function Focus() {
   const [time, setTime] = useState(() => formatTime(Date.now()));
   const [weather, setWeather] = useState<WeatherNow | null>(null);
   const [scanHit, setScanHit] = useState<import("@/convex/objectScan").Hit | null>(null);
-  const scanFrameRef = useRef<HTMLCanvasElement | null>(null);
+  const scanCooldown = useRef(0);
 
-  const captures = useQuery(api.captures.listForUser);
   const captures = useQuery(api.captures.listForUser);
   const activity = useQuery(api.captures.recentActivity);
   const createCapture = useMutation(api.captures.create);
