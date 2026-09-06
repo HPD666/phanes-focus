@@ -1,6 +1,21 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 
+export type Hit = {
+  label: string;
+  confidence: number;
+  source: "exact" | "generic";
+  description: string | null;
+  price: string | null;
+  url: string | null;
+  box: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null;
+};
+
 /**
  * PHANES OBJECT IDENTIFICATION
  * ----------------------------
