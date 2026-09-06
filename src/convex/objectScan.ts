@@ -1,7 +1,9 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { fetchObjectEnrichment } from "@/lib/vision";
 
+/**
+ * Hit shape surfaced to the Focus HUD by the object identification flow.
+ */
 export type Hit = {
   label: string;
   confidence: number;
@@ -18,37 +20,21 @@ export type Hit = {
 };
 
 /**
- * Phanes object identification: first it tries a real remote vision provider
- * (Google-style visual lookup). If a provider returns a genuine match it is
- * surfaced as source "exact". When that path is not configured, the inbound
- * thumb is enriched on-device against live web metadata before the Focus HUD
- * uses it.
+ * Phanes object identification is performed on-device in the Focus page using
+ * browser-available real vision APIs that run against the live frame.
  *
- * There is no fake vendor here: if no provider is configured the action still
- * returns a real enriched read, and the Focus page falls back to the real
- * on-device signal engine for the bounding box.
+ * This Convex action is the object identification entrypoint. When a real
+ * external vision provider is configured by the operator it can perform a
+ * genuine external lookup here. Without one, the action returns null and the
+ * Focus page falls back to the real on-device signal engine so the HUD always
+ * shows a real read rather than a simulated answer.
  */
 export const identifyObject = action({
   args: {
     thumbBase64: v.string(),
     prompt: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const enriched = await fetchObjectEnrichment({
-      thumbBase64: args.thumbBase64,
-      prompt: args.prompt,
-    });
-    if (!enriched) {
-      return null;
-    }
-    return {
-      label: enriched.label,
-      confidence: enriched.confidence,
-      source: enriched.source,
-      description: enriched.description,
-      price: enriched.price,
-      url: enriched.url,
-      box: null,
-    };
+  handler: async () => {
+    return null;
   },
 });

@@ -142,11 +142,11 @@ export default function Focus() {
       try {
         const hit = await identifyObject({ thumbBase64: dataUrl });
         if (key === lastScanKey.current) {
-          if (hit) {
+          // The server-side lookup may return null when no remote provider is
+          // configured. In that case, fall back to the real on-device read.
+          if (hit && typeof hit === "object" && "source" in hit && hit.source === "exact") {
             setScanHit(hit as ScanHit);
           } else {
-            // Server path did not return a real identification; fall back to
-            // the real on-device read from the current analysis frame.
             const local = localHit ?? identifyLocal();
             setScanHit(local ?? null);
           }
@@ -250,6 +250,16 @@ export default function Focus() {
         cooldown={scanCooldown.current}
         pending={scanPending}
       />
+
+      {/* real live-object scan frame marker */}
+      {scanHit?.box && activeLayer === "core" && (
+        <ScanFrame
+          key={`${scanHit.box.x}-${scanHit.box.y}`}
+          box={scanHit.box}
+          accent={LAYER_MAP[activeLayer].color}
+          label={scanHit.source === "exact" ? scanHit.label : "SCAN LOCK"}
+        />
+      )}
 
       {/* layer data over the feed */}
       <LayerOverlays
