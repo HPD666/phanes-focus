@@ -20,6 +20,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
+import { useObjectScan, type ScanHit } from "@/hooks/use-object-scan";
 
 export default function Focus() {
   const { user } = useAuth();
@@ -43,7 +44,7 @@ export default function Focus() {
   const [aiOpen, setAiOpen] = useState(false);
   const [time, setTime] = useState(() => formatTime(Date.now()));
   const [weather, setWeather] = useState<WeatherNow | null>(null);
-  const [scanHit, setScanHit] = useState<import("@/convex/objectScan").Hit | null>(null);
+  const [scanHit, setScanHit] = useState<ScanHit | null>(null);
   const [scanPending, setScanPending] = useState(false);
   const scanCooldown = useRef(0);
   const lastScanKey = useRef(0);
@@ -55,6 +56,13 @@ export default function Focus() {
   const cloudAsk = useAction(api.captures.ask);
 
   const layerCanScan = activeLayer === "core" || activeLayer === "omni";
+
+  // Real on-device object identification from the current analysis frame.
+  const { identify: identifyLocal, last: localHit } = useObjectScan({
+    frameCanvas,
+    metrics,
+    enabled: layerCanScan,
+  });
 
   // Focus scan cooldown refresh
   useEffect(() => {
@@ -135,14 +143,18 @@ export default function Focus() {
         const hit = await identifyObject({ thumbBase64: dataUrl });
         if (key === lastScanKey.current) {
           if (hit) {
-            setScanHit(hit as import("@/convex/objectScan").Hit);
+            setScanHit(hit as ScanHit);
           } else {
-            setScanHit(null);
+            // Server path did not return a real identification; fall back to
+            // the real on-device read from the current analysis frame.
+            const local = localHit ?? identifyLocal();
+            setScanHit(local ?? null);
           }
         }
       } catch {
         if (key === lastScanKey.current) {
-          setScanHit(null);
+          const local = localHit ?? identifyLocal();
+          setScanHit(local ?? null);
         }
       } finally {
         if (key === lastScanKey.current) {
@@ -150,7 +162,7 @@ export default function Focus() {
         }
       }
     },
-    [identifyObject, layerCanScan],
+    [identifyObject, layerCanScan, localHit, identifyLocal],
   );
 
   const handleCapture = async () => {
@@ -186,6 +198,14 @@ export default function Focus() {
     const dataUrl = frameCanvas.toDataURL("image/jpeg", 0.75);
     enqueueObjectScan(dataUrl);
   }, [frameCanvas, enqueueObjectScan, scanPending]);
+
+  // When the analysis frame changes, refresh the real on-device read so the
+  // HUD reflects what the current frame can actually say.
+  useEffect(() => {
+    if (!layerCanScan || scanPending) return;
+    const local = localHit ?? identifyLocal();
+    setScanHit(local ?? null);
+  }, [localHit, identifyLocal, layerCanScan, scanPending]);
 
   return (
     <div
