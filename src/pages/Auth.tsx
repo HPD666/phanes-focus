@@ -1,22 +1,17 @@
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-
 import { useAuth } from "@/hooks/use-auth";
-import logo from "@/assets/logo.svg";
-import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
+import {
+  ArrowRight,
+  Bot,
+  Loader2,
+  Lock,
+  Mail,
+  UserX,
+} from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
@@ -32,6 +27,27 @@ function resolveRedirectAfterAuth(
     return returnTo;
   }
   return fallback;
+}
+
+function Corner({ className }: { className: string }) {
+  return (
+    <div
+      className={`pointer-events-none absolute size-10 border-[#52e0ff]/40 ${className}`}
+    />
+  );
+}
+
+function HudButton({
+  className = "",
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className={`cursor-pointer rounded-sm border border-[#52e0ff]/50 bg-[#52e0ff]/10 px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[#a8ecff] transition-all hover:bg-[#52e0ff]/20 disabled:pointer-events-none disabled:opacity-40 ${className}`}
+    />
+  );
 }
 
 function Auth({ redirectAfterAuth }: AuthProps = {}) {
@@ -52,6 +68,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       navigate(redirect);
     }
   }, [authLoading, isAuthenticated, navigate, redirect]);
+
   const handleEmailSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
@@ -79,16 +96,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     try {
       const formData = new FormData(event.currentTarget);
       await signIn("email-otp", formData);
-
-      console.log("signed in");
-
       navigate(redirect);
     } catch (error) {
       console.error("OTP verification error:", error);
-
       setError("The verification code you entered is incorrect.");
       setIsLoading(false);
-
       setOtp("");
     }
   };
@@ -97,124 +109,171 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsLoading(true);
     setError(null);
     try {
-      console.log("Attempting anonymous sign in...");
       await signIn("anonymous");
-      console.log("Anonymous sign in successful");
       navigate(redirect);
     } catch (error) {
       console.error("Guest login error:", error);
-      console.error("Error details:", JSON.stringify(error, null, 2));
-      setError(`Failed to sign in as guest: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError(
+        `Failed to sign in as guest: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#02040a] text-white">
+      {/* backdrop */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse at 50% 15%, rgba(82,224,255,0.09), transparent 55%), radial-gradient(ellipse at 80% 90%, rgba(255,180,84,0.05), transparent 50%)",
+            "linear-gradient(to bottom, rgba(8,18,34,0.9), #02040a), radial-gradient(ellipse at 50% 0%, rgba(82,224,255,0.10), transparent 55%), radial-gradient(ellipse at 85% 90%, rgba(255,180,84,0.05), transparent 45%)",
         }}
       />
       <div className="hud-scanlines pointer-events-none absolute inset-0" />
-      <div className="pointer-events-none absolute left-5 top-5 size-10 border-l-2 border-t-2 border-[#52e0ff]/40" />
-      <div className="pointer-events-none absolute right-5 top-5 size-10 border-r-2 border-t-2 border-[#52e0ff]/40" />
+      {/* perspective grid */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-48 opacity-40"
+        style={{
+          background:
+            "repeating-linear-gradient(0deg, transparent 0 3px, rgba(80,200,255,0.07) 3px 4px)",
+          maskImage: "linear-gradient(to top, black, transparent)",
+          WebkitMaskImage: "linear-gradient(to top, black, transparent)",
+        }}
+      />
+      <Corner className="left-4 top-14 border-l-2 border-t-2" />
+      <Corner className="right-4 top-14 border-r-2 border-t-2" />
+      <Corner className="bottom-20 left-4 border-b-2 border-l-2" />
+      <Corner className="bottom-20 right-4 border-b-2 border-r-2" />
+
+      {/* top status bar */}
+      <header className="relative z-10 flex h-11 items-center justify-between border-b border-white/10 bg-[#02060d]/70 px-4 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <span className="text-sm leading-none text-[#52e0ff]">◈</span>
+          <span className="font-display text-sm font-semibold tracking-[0.25em] text-white">
+            PHANES
+          </span>
+          <span className="hud-label hidden sm:inline">Operator Uplink</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="hud-label hidden md:inline">
+            Auth · Email OTP / Guest
+          </span>
+          <span className="hud-label flex items-center gap-1.5 text-[#7dff9b]">
+            <span className="size-1.5 animate-pulse rounded-full bg-[#7dff9b]" />
+            FREE FOREVER
+          </span>
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="hud-label cursor-pointer rounded-sm border border-white/10 px-2 py-1 transition-colors hover:border-white/30"
+          >
+            ← Landing
+          </button>
+        </div>
+      </header>
 
       {/* Auth Content */}
-      <div className="relative z-10 flex flex-1 items-center justify-center">
-        <div className="flex items-center justify-center h-full flex-col">
-        <Card className="min-w-[350px] pb-0 border shadow-md">
-          {step === "signIn" ? (
-            <>
-              <CardHeader className="text-center">
-              <div className="flex justify-center">
-                    <img
-                      src={logo}
-                      alt="Lock Icon"
-                      width={64}
-                      height={64}
-                      className="rounded-lg mb-4 mt-4 cursor-pointer"
-                      onClick={() => navigate("/")}
-                    />
+      <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
+        <div className="w-full max-w-[400px]">
+          <div className="hud-panel relative rounded-sm p-6 sm:p-8">
+            {/* accent corner brackets */}
+            <span className="absolute left-0 top-0 size-3 border-l-2 border-t-2 border-[#52e0ff]" />
+            <span className="absolute right-0 top-0 size-3 border-r-2 border-t-2 border-[#52e0ff]" />
+            <span className="absolute bottom-0 left-0 size-3 border-b-2 border-l-2 border-[#52e0ff]" />
+            <span className="absolute bottom-0 right-0 size-3 border-b-2 border-r-2 border-[#52e0ff]" />
+
+            {step === "signIn" ? (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="flex size-11 items-center justify-center rounded-sm border border-[#52e0ff]/40 bg-[#52e0ff]/5">
+                    <Lock className="size-5 text-[#52e0ff]" />
                   </div>
-                <CardTitle className="text-xl">Get Started</CardTitle>
-                <CardDescription>
-                  Enter your email to log in or sign up
-                </CardDescription>
-              </CardHeader>
-              <form onSubmit={handleEmailSubmit}>
-                <CardContent>
-                  
-                  <div className="relative flex items-center gap-2">
+                  <div>
+                    <h1 className="font-display text-lg font-bold tracking-wide text-white">
+                      Operator Uplink
+                    </h1>
+                    <p className="hud-label mt-0.5">
+                      Enter email to log in or sign up
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleEmailSubmit} className="mt-7">
+                  <label className="hud-label mb-2 block" htmlFor="email">
+                    // IDENTIFIER
+                  </label>
+                  <div className="flex items-stretch gap-2">
                     <div className="relative flex-1">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
+                      <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#7fb2d8]/70" />
+                      <input
+                        id="email"
                         name="email"
                         placeholder="name@example.com"
                         type="email"
-                        className="pl-9"
-                        disabled={isLoading}
                         required
+                        disabled={isLoading}
+                        className="h-11 w-full rounded-sm border border-white/15 bg-black/40 pl-10 pr-3 font-mono text-[13px] text-white placeholder:text-white/25 focus:border-[#52e0ff]/60 focus:outline-none disabled:opacity-50"
                       />
                     </div>
-                    <Button
+                    <button
                       type="submit"
-                      variant="outline"
-                      size="icon"
                       disabled={isLoading}
+                      aria-label="Send code"
+                      className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-sm border border-[#52e0ff]/50 bg-[#52e0ff]/10 text-[#a8ecff] transition-all hover:bg-[#52e0ff]/20 disabled:opacity-40"
                     >
                       {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="size-4 animate-spin" />
                       ) : (
-                        <ArrowRight className="h-4 w-4" />
+                        <ArrowRight className="size-4" />
                       )}
-                    </Button>
+                    </button>
                   </div>
                   {error && (
-                    <p className="mt-2 text-sm text-red-500">{error}</p>
+                    <p className="mt-3 rounded-sm border border-red-400/30 bg-red-950/30 px-3 py-2 font-mono text-[11px] text-red-300/90">
+                      ⚠ {error}
+                    </p>
                   )}
-                  
-                  <div className="mt-4">
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">
-                          Or
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full mt-4"
-                      onClick={handleGuestLogin}
-                      disabled={isLoading}
-                    >
-                      <UserX className="mr-2 h-4 w-4" />
-                      Continue as Guest
-                    </Button>
+
+                  <div className="my-6 flex items-center gap-3">
+                    <span className="h-px flex-1 bg-white/10" />
+                    <span className="hud-label text-white/40">or</span>
+                    <span className="h-px flex-1 bg-white/10" />
                   </div>
-                </CardContent>
-              </form>
-            </>
-          ) : (
-            <>
-              <CardHeader className="text-center mt-4">
-                <CardTitle>Check your email</CardTitle>
-                <CardDescription>
-                  We've sent a code to {step.email}
-                </CardDescription>
-              </CardHeader>
-              <form onSubmit={handleOtpSubmit}>
-                <CardContent className="pb-4">
+
+                  <HudButton
+                    onClick={handleGuestLogin}
+                    disabled={isLoading}
+                    className="w-full"
+                  >
+                    <UserX className="size-4" />
+                    Continue as Guest
+                  </HudButton>
+                </form>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="flex size-11 items-center justify-center rounded-sm border border-[#52e0ff]/40 bg-[#52e0ff]/5">
+                    <Bot className="size-5 text-[#52e0ff]" />
+                  </div>
+                  <div>
+                    <h1 className="font-display text-lg font-bold tracking-wide text-white">
+                      Verify Uplink
+                    </h1>
+                    <p className="hud-label mt-0.5">
+                      Code sent to {step.email}
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleOtpSubmit} className="mt-7">
                   <input type="hidden" name="email" value={step.email} />
                   <input type="hidden" name="code" value={otp} />
 
+                  <label className="hud-label mb-2 block">
+                    // SIX-DIGIT CODE
+                  </label>
                   <div className="flex justify-center">
                     <InputOTP
                       value={otp}
@@ -223,81 +282,78 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       disabled={isLoading}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && otp.length === 6 && !isLoading) {
-                          // Find the closest form and submit it
                           const form = (e.target as HTMLElement).closest("form");
-                          if (form) {
-                            form.requestSubmit();
-                          }
+                          if (form) form.requestSubmit();
                         }
                       }}
+                      containerClassName="gap-2"
                     >
                       <InputOTPGroup>
                         {Array.from({ length: 6 }).map((_, index) => (
-                          <InputOTPSlot key={index} index={index} />
+                          <InputOTPSlot
+                            key={index}
+                            index={index}
+                            className="h-11 w-10 rounded-none border-white/20 bg-black/40 font-mono text-base text-white first:rounded-l-sm last:rounded-r-sm data-[active=true]:border-[#52e0ff]/70 data-[active=true]:ring-[#52e0ff]/30"
+                          />
                         ))}
                       </InputOTPGroup>
                     </InputOTP>
                   </div>
                   {error && (
-                    <p className="mt-2 text-sm text-red-500 text-center">
-                      {error}
+                    <p className="mt-3 rounded-sm border border-red-400/30 bg-red-950/30 px-3 py-2 font-mono text-[11px] text-red-300/90">
+                      ⚠ {error}
                     </p>
                   )}
-                  <p className="text-sm text-muted-foreground text-center mt-4">
-                    Didn't receive a code?{" "}
-                    <Button
-                      variant="link"
-                      className="p-0 h-auto"
-                      onClick={() => setStep("signIn")}
-                    >
-                      Try again
-                    </Button>
-                  </p>
-                </CardContent>
-                <CardFooter className="flex-col gap-2">
-                  <Button
+
+                  <button
                     type="submit"
-                    className="w-full"
                     disabled={isLoading || otp.length !== 6}
+                    className="mt-7 flex w-full cursor-pointer items-center justify-center gap-2 rounded-sm border border-[#52e0ff]/50 bg-[#52e0ff]/10 px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[#a8ecff] transition-all hover:bg-[#52e0ff]/20 disabled:pointer-events-none disabled:opacity-40"
                   >
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Verifying...
+                        <Loader2 className="size-4 animate-spin" />
+                        Verifying…
                       </>
                     ) : (
                       <>
                         Verify code
-                        <ArrowRight className="ml-2 h-4 w-4" />
+                        <ArrowRight className="size-4" />
                       </>
                     )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setStep("signIn")}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    Use different email
-                  </Button>
-                </CardFooter>
-              </form>
-            </>
-          )}
+                  </button>
 
-          <div className="py-4 px-6 text-xs text-center text-muted-foreground bg-muted border-t rounded-b-lg">
-            Secured by{" "}
-            <a
-              href="https://freebuff.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-primary transition-colors"
-            >
-              freebuff.com
-            </a>
+                  <div className="mt-3 flex items-center justify-between">
+                    <HudButton
+                      onClick={() => setStep("signIn")}
+                      disabled={isLoading}
+                      className="border-white/15 bg-transparent px-3 py-2 text-[9px] text-white/60 hover:bg-white/5 hover:text-white"
+                    >
+                      Use different email
+                    </HudButton>
+                    <span className="hud-label text-white/35">
+                      Didn't get it? Resend
+                    </span>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
-        </Card>
+
+          {/* bottom layer-strip nod to the Focus UI */}
+          <div className="mt-6 flex items-center justify-center gap-2">
+            <span className="hud-label text-white/30">10 layers</span>
+            {["#52e0ff", "#ffb454", "#c3a1ff", "#ffcf3f", "#6fb5ff", "#ff8fa3", "#7dff9b", "#9fb6ff", "#2ff3e0", "#ff5d6c"].map(
+              (c) => (
+                <span
+                  key={c}
+                  className="size-1.5 rounded-full"
+                  style={{ backgroundColor: c, boxShadow: `0 0 6px ${c}` }}
+                />
+              ),
+            )}
+            <span className="hud-label text-[#e8f6ff]/60">+ OMNI</span>
+          </div>
         </div>
       </div>
     </div>

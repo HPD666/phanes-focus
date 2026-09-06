@@ -205,6 +205,7 @@ export default function Focus() {
         captures={historyCaptures}
         activity={activityPings}
         geo={{ lat: geo.lat, lng: geo.lng }}
+        heading={heading}
         ocr={ocrItems}
         ocrStatus={ocrStatus}
         anomalies={anomalies}

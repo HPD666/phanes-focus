@@ -31,10 +31,28 @@ interface LayerOverlaysProps {
   captures: HistoryCapture[];
   activity: ActivityPing[];
   geo: { lat: number | null; lng: number | null };
+  heading: number; // operator's live compass heading (deg)
   ocr: OcrItem[];
   ocrStatus: OcrStatus;
   anomalies: Anomaly[];
   accent: string;
+}
+
+/**
+ * Places a history ghost at the screen position matching the bearing it was
+ * captured on, relative to where the operator is looking right now. A capture
+ * taken facing north appears top-center when you face north and slides off
+ * toward the correct edge as you turn — the same anchoring a real Focus
+ * overlay would use, derived from stored headings rather than randomness.
+ */
+function ghostPosition(c: HistoryCapture, heading: number) {
+  const hfov = 62; // assumed horizontal field of view of the optics, degrees
+  const delta = ((c.heading - heading + 540) % 360) - 180; // + = to the right
+  const dx = Math.max(-1, Math.min(1, delta / hfov));
+  const dy = hash01(`${c.id}-y`);
+  const x = 0.5 + dx * 0.44;
+  const y = 0.3 + dy * 0.3 - Math.abs(dx) * 0.06;
+  return { x, y, delta };
 }
 
 function At({
@@ -90,6 +108,7 @@ export function LayerOverlays({
   captures,
   activity,
   geo,
+  heading,
   ocr,
   ocrStatus,
   anomalies,
@@ -165,8 +184,13 @@ export function LayerOverlays({
       {/* ------- HISTORY ------- */}
       {showHistory &&
         ghosts.map((c, i) => {
-          const hx = 0.12 + hash01(c.id) * 0.76;
-          const hy = 0.24 + hash01(`${c.id}-y`) * 0.4;
+          const { x: hx, y: hy, delta } = ghostPosition(c, heading);
+          const dist =
+            geo.lat !== null && geo.lng !== null
+              ? distanceM(geo.lat, geo.lng, c.lat, c.lng)
+              : null;
+          // nearer ghosts read larger, like a real overlay pinned to distance
+          const near = dist !== null && dist <= 120;
           return (
             <At key={c.id} x={hx} y={hy}>
               <motion.div
@@ -175,11 +199,28 @@ export function LayerOverlays({
                 transition={{ delay: i * 0.06 }}
                 className="group relative cursor-pointer"
               >
+                {/* bearing guide from the ghost toward the operator */}
+                <div
+                  className="absolute left-1/2 top-full h-10 w-px -translate-x-1/2"
+                  style={{
+                    background:
+                      "linear-gradient(to bottom, rgba(255,180,84,0.55), transparent)",
+                  }}
+                />
+                {/* stored bearing tag */}
+                <div
+                  className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[8px] tracking-[0.15em]"
+                  style={{ color: "#ffb454" }}
+                >
+                  BRG {String(Math.round(((c.heading % 360) + 360) % 360)).padStart(3, "0")}°
+                </div>
                 <div className="absolute -inset-px border border-[#ffb454]/40" />
                 <img
                   src={c.thumb}
                   alt="Past capture"
-                  className="h-20 w-28 rounded-[2px] object-cover opacity-50 grayscale-[35%] transition-all group-hover:opacity-90 sm:h-24 sm:w-36"
+                  className={`rounded-[2px] object-cover opacity-50 grayscale-[35%] transition-all group-hover:opacity-90 ${
+                    near ? "h-24 w-36 sm:h-28 sm:w-44" : "h-16 w-24 sm:h-20 sm:w-32"
+                  }`}
                   style={{ filter: "sepia(0.3) hue-rotate(-20deg)" }}
                 />
                 <div
@@ -188,9 +229,13 @@ export function LayerOverlays({
                 >
                   <span>{ageLabel(c.createdAt)}</span>
                   <span>
-                    {geo.lat !== null && geo.lng !== null
-                      ? `${Math.round(distanceM(geo.lat, geo.lng, c.lat, c.lng))}m`
-                      : "near"}
+                    {dist !== null
+                      ? `${Math.round(dist)}m`
+                      : delta > 5
+                        ? `${Math.round(Math.abs(delta))}°R`
+                        : delta < -5
+                          ? `${Math.round(Math.abs(delta))}°L`
+                          : "ahead"}
                   </span>
                 </div>
                 <div className="absolute -top-2 left-1/2 h-4 w-px -translate-x-1/2 bg-[#ffb454]/50" />
