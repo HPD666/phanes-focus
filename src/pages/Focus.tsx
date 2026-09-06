@@ -16,7 +16,7 @@ import { fetchWeather, type WeatherNow } from "@/lib/weather";
 import type { AiContext } from "@/lib/ai";
 import { distanceM, formatTime } from "@/lib/geo";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -43,15 +43,12 @@ export default function Focus() {
   const [time, setTime] = useState(() => formatTime(Date.now()));
   const [weather, setWeather] = useState<WeatherNow | null>(null);
   const [scanHit, setScanHit] = useState<import("@/convex/objectScan").Hit | null>(null);
-  const scanCooldown = useRef(0);
 
   const captures = useQuery(api.captures.listForUser);
   const activity = useQuery(api.captures.recentActivity);
   const createCapture = useMutation(api.captures.create);
   const identifyObject = useAction(api.objectScan.identifyObject);
   const cloudAsk = useAction(api.captures.ask);
-
-  const layerCanScan = activeLayer === "core" || activeLayer === "omni";
 
   // Cloud brain is opt-in only. Available when the project's Vly
   // integration key is present (shipped automatically). Disabled by
@@ -193,7 +190,7 @@ export default function Focus() {
 
     // Object scan: identify the primary object in the captured frame and
     // show it in the HUD if the provider returns a hit.
-    if (shot.thumb && activeLayer === "core") {
+    if (shot.thumb) {
       setScanHit(null);
       const hit = await identifyObject({ thumbBase64: shot.thumb });
       if (hit) {
@@ -221,21 +218,7 @@ export default function Focus() {
       />
 
       {/* object scan HUD overlay */}
-      <ObjectScan
-        hit={scanHit}
-        accent={layer.color}
-        onDismiss={() => setScanHit(null)}
-        onRescan={() => {
-          if (scanCooldown.current > 0 || !frameCanvas) return;
-          scanCooldown.current = 1400;
-          const dataUrl = frameCanvas.toDataURL("image/jpeg", 0.7);
-          identifyObject({ thumbBase64: dataUrl }).then((hit) => {
-            if (hit) setScanHit(hit as import("@/convex/objectScan").Hit);
-          });
-        }}
-        canScan={layerCanScan}
-        cooldown={scanCooldown.current}
-      />
+      <ObjectScan hit={scanHit} accent={layer.color} />
 
       {/* layer data over the feed */}
       <LayerOverlays
