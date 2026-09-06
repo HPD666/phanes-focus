@@ -167,8 +167,9 @@ export function AiPanel({ open, onClose, ctx, cloudAsk }: AiPanelProps) {
             </form>
             <p className="mt-2 text-[9.5px] leading-relaxed text-white/35">
               On-device engine answers only from live telemetry. Optional cloud
-              brain (free tier) activates when a SambaNova key is added. No
-              subscription, ever.
+              brain runs through SambaNova (free tier) and, when that is
+              unavailable, the Vly integration gateway — both free, both wired
+              behind the same ask action. No subscription, ever.
             </p>
           </div>
         </motion.aside>

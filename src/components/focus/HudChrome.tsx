@@ -1,4 +1,4 @@
-import { Bot, LogOut } from "lucide-react";
+import { Bot, History, LogOut } from "lucide-react";
 import type { FeedMode } from "@/hooks/use-scene";
 import type { OcrStatus } from "@/hooks/use-ocr";
 import type { NetworkInfo } from "@/lib/ai";
@@ -20,6 +20,7 @@ interface HudChromeProps {
   aiOpen: boolean;
   onToggleAi: () => void;
   onExit: () => void;
+  onOpenGallery: () => void;
 }
 
 export function HudChrome({
@@ -37,6 +38,7 @@ export function HudChrome({
   aiOpen,
   onToggleAi,
   onExit,
+  onOpenGallery,
 }: HudChromeProps) {
   const feedLabel = feed === "camera" ? "CAM" : feed === "synthetic" ? "SIM" : "OFF";
   return (
@@ -128,9 +130,16 @@ export function HudChrome({
             type="button"
             onClick={onExit}
             className="hud-label pointer-events-auto flex cursor-pointer items-center gap-1 rounded-sm border border-white/10 px-2 py-1 text-red-300/70 transition-colors hover:border-red-400/40 hover:text-red-300"
-          >
-            <LogOut className="size-3" />
+          >              <LogOut className="size-3" />
             Exit
+          </button>
+          <button
+            type="button"
+            onClick={onOpenGallery}
+            className="hud-label pointer-events-auto flex cursor-pointer items-center gap-1 rounded-sm border border-white/10 px-2 py-1 transition-colors hover:border-white/30"
+          >
+            <History className="size-3" style={{ color: accent }} />
+            Archive
           </button>
         </div>
       </div>

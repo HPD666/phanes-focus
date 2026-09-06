@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { vly } from "../lib/vly-integrations";
 
 const hotspot = v.object({
   x: v.number(),
@@ -16,7 +17,7 @@ const ocrText = v.object({
   y: v.number(),
 });
 
-export const metricsValidator = v.object({
+const metricsValidator = v.object({
   brightness: v.number(),
   contrast: v.number(),
   saturation: v.number(),
@@ -28,9 +29,7 @@ export const metricsValidator = v.object({
   hotspots: v.array(hotspot),
 });
 
-/**
- * Archives a scene capture for the signed-in user.
- */
+/** Archives a scene capture for the signed-in user. */
 export const create = mutation({
   args: {
     lat: v.number(),
@@ -61,9 +60,7 @@ export const create = mutation({
   },
 });
 
-/**
- * Deletes one of the signed-in user's captures (ownership checked).
- */
+/** Deletes one of the signed-in user's captures (ownership checked). */
 export const remove = mutation({
   args: { id: v.id("captures") },
   handler: async (ctx, args) => {
@@ -76,12 +73,11 @@ export const remove = mutation({
       throw new Error("Capture not found");
     }
     await ctx.db.delete(args.id);
+    return true;
   },
 });
 
-/**
- * The signed-in user's most recent captures (with thumbs, for History layer).
- */
+/** The signed-in user's most recent captures (with thumbs, for History layer). */
 export const listForUser = query({
   args: {},
   handler: async (ctx) => {
@@ -97,9 +93,8 @@ export const listForUser = query({
   },
 });
 
-/**
- * Lightweight recent activity from all users (last 24h, no thumbs) — feeds
- * the Flow / Signals beacon layers with real data from other operators.
+/** Lightweight recent activity from all users (last 24h, no thumbs) — feeds
+ *  the Flow / Signals beacon layers with real data from other operators.
  */
 export const recentActivity = query({
   args: {},
@@ -122,14 +117,19 @@ export const recentActivity = query({
   },
 });
 
-/**
- * Optional cloud-brain for the Phanes assistant.
+/** Optional cloud-brain for the Phanes assistant.
  *
- * If the operator has pasted a SAMBANOVA_API_KEY into the project keys, this
- * action calls SambaNova's OpenAI-compatible endpoint with an open model
- * (generous free tier — the app stays free). Without a key it returns null
- * and the client uses the on-device engine, so Phanes works forever with
- * zero infrastructure cost.
+ * Two interchangeable cloud providers, tried in order so Phanes keeps working
+ * even if one provider is down or its key is missing:
+ *
+ * 1. SambaNova (free tier, open models) — configured with SAMBANOVA_API_KEY
+ *    in the project keys. OpenAI-compatible endpoint, Meta-Llama 3.1 70B.
+ * 2. Vly Integrations (free tier, billed through the Vly project key) —
+ *    the project's VLY_INTEGRATION_KEY is already injected, so no extra key
+ *    is required. Falls back here when SambaNova is unavailable.
+ *
+ * When neither provider is available the action returns null and the client
+ * uses the on-device engine, so Phanes works forever at zero cost either way.
  */
 export const ask = action({
   args: {
@@ -137,46 +137,77 @@ export const ask = action({
     scene: v.string(), // compact JSON context assembled by the client
   },
   handler: async (_ctx, args) => {
-    const apiKey = process.env.SAMBANOVA_API_KEY;
-    if (!apiKey) {
-      return null;
-    }
-    try {
-      const res = await fetch("https://api.sambanova.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "meta-llama/Llama-3.1-70B-Instruct",
-          temperature: 0.4,
-          max_tokens: 500,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are PHANES, the on-head AI of a Focus-style augmented-reality device. " +
-                "Answer the operator about their current scene using ONLY the supplied telemetry. " +
-                "Be precise, terse, and a little technical, like a HUD assistant. Never invent data " +
-                "that is not in the context. Format with short lines, no markdown headers.",
-            },
-            {
-              role: "user",
-              content: `SCENE TELEMETRY:\n${args.scene}\n\nOPERATOR QUESTION:\n${args.prompt}`,
-            },
-          ],
-        }),
-      });
-      if (!res.ok) {
-        return null;
+    const sambanovaKey = process.env.SAMBANOVA_API_KEY;
+
+    // Provider 1 — SambaNova (open model, free tier)
+    if (sambanovaKey) {
+      try {
+        const res = await fetch("https://api.sambanova.ai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${sambanovaKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "meta-llama/Llama-3.1-70B-Instruct",
+            temperature: 0.4,
+            max_tokens: 500,
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are PHANES, the on-head AI of a Focus-style augmented-reality device. " +
+                  "Answer the operator about their current scene using ONLY the supplied telemetry. " +
+                  "Be precise, terse, and a little technical, like a HUD assistant. Never invent data " +
+                  "that is not in the context. Format with short lines, no markdown headers.",
+              },
+              {
+                role: "user",
+                content: `SCENE TELEMETRY:\n${args.scene}\n\nOPERATOR QUESTION:\n${args.prompt}`,
+              },
+            ],
+          }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as {
+            choices?: { message?: { content?: string } }[];
+          };
+          const content = data.choices?.[0]?.message?.content ?? null;
+          if (content) return content;
+        }
+      } catch {
+        // SambaNova failed — fall through to the Vly provider
       }
-      const data = (await res.json()) as {
-        choices?: { message?: { content?: string } }[];
-      };
-      return data.choices?.[0]?.message?.content ?? null;
-    } catch {
-      return null;
     }
+
+    // Provider 2 — Vly Integrations (free tier, already wired via VLY_INTEGRATION_KEY)
+    try {
+      const result = await vly.ai.completion({
+        model: "gpt-5",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are PHANES, the on-head AI of a Focus-style augmented-reality device. " +
+              "Answer the operator about their current scene using ONLY the supplied telemetry. " +
+              "Be precise, terse, and a little technical, like a HUD assistant. Never invent data " +
+              "that is not in the context. Format with short lines, no markdown headers.",
+          },
+          {
+            role: "user",
+            content: `SCENE TELEMETRY:\n${args.scene}\n\nOPERATOR QUESTION:\n${args.prompt}`,
+          },
+        ],
+        temperature: 0.4,
+        maxTokens: 500,
+      });
+      if (result.success && result.data?.choices?.[0]?.message?.content) {
+        return result.data.choices[0].message.content;
+      }
+    } catch {
+      // Vly also failed — fall through to on-device engine
+    }
+
+    return null;
   },
 });

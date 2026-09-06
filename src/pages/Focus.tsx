@@ -228,6 +228,7 @@ export default function Focus() {
         aiOpen={aiOpen}
         onToggleAi={() => setAiOpen((v) => !v)}
         onExit={() => navigate("/")}
+        onOpenGallery={() => navigate("/gallery")}
       />
 
       {/* radar */}

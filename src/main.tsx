@@ -13,6 +13,7 @@ import "./index.css";
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Focus = lazy(() => import("./pages/Focus.tsx"));
+const Gallery = lazy(() => import("./pages/Gallery.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -129,6 +130,14 @@ createRoot(document.getElementById("root")!).render(
                 element={
                   <RequireAuth>
                     <Focus />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/gallery"
+                element={
+                  <RequireAuth>
+                    <Gallery />
                   </RequireAuth>
                 }
               />
