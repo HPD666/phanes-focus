@@ -134,9 +134,9 @@ export default function Landing() {
             className="mt-6 max-w-2xl text-base leading-relaxed text-[#a8cfe8]/80 sm:text-lg"
           >              A Focus-style augmented reality overlay.              Ten analysis layers —
               history, hidden text, energy, weather, flow, biosphere, structure,
-              signals, anomalies, and object scan — and an OMNI super layer that
-              renders them all at once. Every reading is computed live from real
-              pixels and real telemetry. No cloud bill. No subscription. Ever.
+              signals, anomalies — and an OMNI super layer that renders them all
+              at once. Every reading is computed live from real pixels and real
+              telemetry. No cloud bill. No subscription. Ever.
           </motion.p>
 
           <motion.div

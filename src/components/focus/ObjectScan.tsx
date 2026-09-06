@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Scan, X } from "lucide-react";
+import { Scan, X, Loader2 } from "lucide-react";
 import type { Hit } from "@/convex/objectScan";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,7 @@ interface ObjectScanProps {
   cooldown: number;
   onDismiss: () => void;
   onRescan: () => void;
+  pending?: boolean;
 }
 
 export function ObjectScan({
@@ -19,13 +20,14 @@ export function ObjectScan({
   cooldown,
   onDismiss,
   onRescan,
+  pending = false,
 }: ObjectScanProps) {
   return (
     <div className="pointer-events-none absolute inset-0 z-10">
       <AnimatePresence>
-        {hit && (
+        {(hit || pending) && (
           <motion.div
-            key="panel"
+            key={hit ? "panel" : "pending"}
             initial={{ opacity: 0, x: 40, scale: 0.98 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 40, scale: 0.98 }}
@@ -38,6 +40,7 @@ export function ObjectScan({
               cooldown={cooldown}
               onDismiss={onDismiss}
               onRescan={onRescan}
+              pending={pending}
             />
           </motion.div>
         )}
@@ -53,11 +56,16 @@ function ObjectScanPanel({
   cooldown,
   onDismiss,
   onRescan,
+  pending,
 }: ObjectScanProps) {
-  if (!hit) return null;
+  if (!hit && !pending) return null;
 
-  const exact = hit.source === "exact";
-  const matchTag = exact ? "MATCH CONFIRMED" : "INFERENCE";
+  const exact = hit ? hit.source === "exact" : false;
+  const matchTag = pending
+    ? "ANALYZING FRAME"
+    : exact
+      ? "MATCH CONFIRMED"
+      : "INFERENCE";
 
   return (
     <div
@@ -71,7 +79,7 @@ function ObjectScanPanel({
       <div className="flex items-center gap-2">
         <Scan className="size-4 shrink-0" style={{ color: accent }} />
         <span className="font-display text-xs font-semibold tracking-[0.2em] text-white">
-          PHANES · SCAN
+          PHANES · OBJECT SCAN
         </span>
         <span
           className={cn(
@@ -118,9 +126,8 @@ function ObjectScanPanel({
             <p className="mt-1 line-clamp-4 text-[11px] leading-relaxed text-white/70">
               {hit.description}
             </p>
-          ) : (
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/30">
-              NO ENRICHMENT YET
+          ) : (              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/30">
+              NO ENRICHMENT AVAILABLE
             </p>
           )}
         </div>
@@ -195,12 +202,14 @@ function ObjectScanPanel({
         <button
           type="button"
           onClick={onRescan}
-          disabled={!canScan || cooldown > 0}
+          disabled={!canScan || cooldown > 0 || pending}
           className="flex-1 hud-label cursor-pointer rounded-sm border border-white/10 py-1 text-[10px] font-mono uppercase tracking-[0.2em] transition-colors hover:border-white/30 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {cooldown > 0
             ? `SCAN TOOL READY · RESCAN IN ${Math.ceil(cooldown / 100)}s`
-            : "RESCAN LIVE FRAME"}
+            : pending
+              ? "BUSY"
+              : "RESCAN LIVE FRAME"}
         </button>
         <button
           type="button"

@@ -44,6 +44,7 @@ export default function Focus() {
   const [time, setTime] = useState(() => formatTime(Date.now()));
   const [weather, setWeather] = useState<WeatherNow | null>(null);
   const [scanHit, setScanHit] = useState<import("@/convex/objectScan").Hit | null>(null);
+  const [scanPending, setScanPending] = useState(false);
   const scanCooldown = useRef(0);
   const lastScanKey = useRef(0);
 
@@ -123,17 +124,31 @@ export default function Focus() {
   );
 
   const enqueueObjectScan = useCallback(
-    (dataUrl: string) => {
+    async (dataUrl: string) => {
       if (!layerCanScan || !dataUrl) return;
       setScanHit(null);
+      setScanPending(true);
       lastScanKey.current += 1;
       const key = lastScanKey.current;
       scanCooldown.current = 1600;
-      identifyObject({ thumbBase64: dataUrl }).then((hit) => {
-        if (hit && key === lastScanKey.current) {
-          setScanHit(hit as import("@/convex/objectScan").Hit);
+      try {
+        const hit = await identifyObject({ thumbBase64: dataUrl });
+        if (key === lastScanKey.current) {
+          if (hit) {
+            setScanHit(hit as import("@/convex/objectScan").Hit);
+          } else {
+            setScanHit(null);
+          }
         }
-      });
+      } catch {
+        if (key === lastScanKey.current) {
+          setScanHit(null);
+        }
+      } finally {
+        if (key === lastScanKey.current) {
+          setScanPending(false);
+        }
+      }
     },
     [identifyObject, layerCanScan],
   );
@@ -167,10 +182,10 @@ export default function Focus() {
   };
 
   const handleRescan = useCallback(() => {
-    if (scanCooldown.current > 0 || !frameCanvas) return;
+    if (scanPending || scanCooldown.current > 0 || !frameCanvas) return;
     const dataUrl = frameCanvas.toDataURL("image/jpeg", 0.75);
     enqueueObjectScan(dataUrl);
-  }, [frameCanvas, enqueueObjectScan]);
+  }, [frameCanvas, enqueueObjectScan, scanPending]);
 
   return (
     <div
@@ -191,13 +206,19 @@ export default function Focus() {
       />
 
       {/* live focus bounding frame */}
-      {activeLayer === "core" && scanHit?.box && (
-        <ScanFrame
-          box={scanHit.box}
-          accent={LAYER_MAP[activeLayer].color}
-          label={scanHit.label}
-        />
-      )}
+      {activeLayer === "core" &&
+        scanHit?.box &&
+        (() => {
+          const box = scanHit.box;
+          return (
+            <ScanFrame
+              key={box.x + box.y}
+              box={box}
+              accent={LAYER_MAP[activeLayer].color}
+              label={scanHit.label}
+            />
+          );
+        })()}
 
       {/* live focus scan readout */}
       <ObjectScan
@@ -207,6 +228,7 @@ export default function Focus() {
         onRescan={handleRescan}
         canScan={layerCanScan}
         cooldown={scanCooldown.current}
+        pending={scanPending}
       />
 
       {/* layer data over the feed */}
