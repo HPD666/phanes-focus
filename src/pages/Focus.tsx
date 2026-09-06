@@ -16,7 +16,7 @@ import { fetchWeather, type WeatherNow } from "@/lib/weather";
 import type { AiContext } from "@/lib/ai";
 import { distanceM, formatTime } from "@/lib/geo";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -43,12 +43,41 @@ export default function Focus() {
   const [time, setTime] = useState(() => formatTime(Date.now()));
   const [weather, setWeather] = useState<WeatherNow | null>(null);
   const [scanHit, setScanHit] = useState<import("@/convex/objectScan").Hit | null>(null);
+  const [scanCooldown, setScanCooldown] = useState(0);
+  const scanCooldownRef = useRef(scanCooldown);
+  scanCooldownRef.current = scanCooldown;
+
+  // Live object scan: runs on the visible layer when the optics are on a
+  // scan-capable layer. The cooldown is derived from the current state so
+  // both the effect and the HUD button share one cooldown clock.
+  useEffect(() => {
+    if (scanCooldownRef.current > 0) {
+      const t = setTimeout(() => setScanCooldown((n) => Math.max(0, n - 100)), 100);
+      return () => clearTimeout(t);
+    }
+  }, [scanCooldownRef.current]);
+  const scanCooldownRef = useRef(scanCooldown);
+  scanCooldownRef.current = scanCooldown;
+
+  // Live object scan: runs on the visible layer when the optics are on a
+  // scan-capable layer. The cooldown is derived from the current state so
+  // both the effect and the HUD button share one cooldown clock.
+  useEffect(() => {
+    if (scanCooldownRef.current > 0) {
+      const t = setTimeout(() => setScanCooldown((n) => Math.max(0, n - 100)), 100);
+      return () => clearTimeout(t);
+    }
+  }, [scanCooldownRef.current]);
 
   const captures = useQuery(api.captures.listForUser);
   const activity = useQuery(api.captures.recentActivity);
   const createCapture = useMutation(api.captures.create);
   const identifyObject = useAction(api.objectScan.identifyObject);
   const cloudAsk = useAction(api.captures.ask);
+
+  const layerCanScan = activeLayer === "core" || activeLayer === "omni";
+
+  const layerCanScan = activeLayer === "core" || activeLayer === "omni";
 
   // Cloud brain is opt-in only. Available when the project's Vly
   // integration key is present (shipped automatically). Disabled by
@@ -190,7 +219,7 @@ export default function Focus() {
 
     // Object scan: identify the primary object in the captured frame and
     // show it in the HUD if the provider returns a hit.
-    if (shot.thumb) {
+    if (shot.thumb && activeLayer === "core") {
       setScanHit(null);
       const hit = await identifyObject({ thumbBase64: shot.thumb });
       if (hit) {
