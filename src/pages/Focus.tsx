@@ -6,7 +6,6 @@ import { ReadoutPanel } from "@/components/focus/ReadoutPanel";
 import { CaptureButton } from "@/components/focus/CaptureButton";
 import { AiPanel } from "@/components/focus/AiPanel";
 import { ObjectScan } from "@/components/focus/ObjectScan";
-import { ScanFrame } from "@/components/focus/ScanFrame";
 import { LayerOverlays, type HistoryCapture, type ActivityPing } from "@/components/focus/LayerOverlays";
 import { useScene } from "@/hooks/use-scene";
 import { useOcr } from "@/hooks/use-ocr";
@@ -20,7 +19,6 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
-import { useObjectScan, type ScanHit } from "@/hooks/use-object-scan";
 
 export default function Focus() {
   const { user } = useAuth();
@@ -44,10 +42,8 @@ export default function Focus() {
   const [aiOpen, setAiOpen] = useState(false);
   const [time, setTime] = useState(() => formatTime(Date.now()));
   const [weather, setWeather] = useState<WeatherNow | null>(null);
-  const [scanHit, setScanHit] = useState<ScanHit | null>(null);
-  const [scanPending, setScanPending] = useState(false);
+  const [scanHit, setScanHit] = useState<import("@/convex/objectScan").Hit | null>(null);
   const scanCooldown = useRef(0);
-  const lastScanKey = useRef(0);
 
   const captures = useQuery(api.captures.listForUser);
   const activity = useQuery(api.captures.recentActivity);
@@ -57,30 +53,68 @@ export default function Focus() {
 
   const layerCanScan = activeLayer === "core" || activeLayer === "omni";
 
-  // Real on-device object identification from the current analysis frame.
-  const { identify: identifyLocal, last: localHit } = useObjectScan({
-    frameCanvas,
-    metrics,
-    enabled: layerCanScan,
-  });
+  // Cloud brain is opt-in only. Available when the project's Vly
+  // integration key is present (shipped automatically). Disabled by
+  // default so Phanes is free forever with no paid dependency.
+  const [cloudEnabled, setCloudEnabled] = useState(false);
+  const cloudAvailable = Boolean(cloudAsk);
+  const onToggleCloud = useCallback(() => setCloudEnabled((v) => !v), []);
 
-  // Focus scan cooldown refresh
+  const activeOcr = activeLayer === "inscriptions" || activeLayer === "omni";
+  const { items: ocrItems, status: ocrStatus } = useOcr(activeOcr, frameCanvas);
+
+  const layer = LAYER_MAP[activeLayer];
+
+  // clock
   useEffect(() => {
-    if (scanCooldown.current > 0) {
-      const t = setTimeout(
-        () => (scanCooldown.current = Math.max(0, scanCooldown.current - 100)),
-        100,
-      );
-      return () => clearTimeout(t);
-    }
-  }, [scanCooldown.current]);
+    const t = setInterval(() => setTime(formatTime(Date.now())), 1000);
+    return () => clearInterval(t);
+  }, []);
 
-  const capturesList = captures ?? [];
-  const activityList = activity ?? [];
+  // weather — fetched when a fix is available, refreshed periodically
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (geo.lat !== null && geo.lng !== null) {
+        const w = await fetchWeather(geo.lat, geo.lng);
+        if (!cancelled && w) setWeather(w);
+      }
+    };
+    void load();
+    const t = setInterval(load, 10 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [geo.lat, geo.lng]);
 
-  const capturesForOverlay = useMemo<HistoryCapture[]>(
+  // operator baseline from archived captures
+  const baseline = useMemo<FrameMetrics | null>(() => {
+    if (!captures || captures.length === 0) return null;
+    const recent = captures.slice(0, 20);
+    const mean = (k: keyof FrameMetrics) =>
+      recent.reduce((s, c) => s + (c.metrics[k] as number), 0) / recent.length;
+    return {
+      brightness: mean("brightness"),
+      contrast: mean("contrast"),
+      saturation: mean("saturation"),
+      edgeDensity: mean("edgeDensity"),
+      vegetationIndex: mean("vegetationIndex"),
+      motion: mean("motion"),
+      anomalyScore: mean("anomalyScore"),
+      dominantColors: [],
+      hotspots: recent.flatMap((c) => c.metrics.hotspots).slice(0, 9) as FrameMetrics["hotspots"],
+    };
+  }, [captures]);
+
+  const anomalies = useMemo(
+    () => (metrics ? detectAnomalies(metrics, baseline) : []),
+    [metrics, baseline],
+  );
+
+  const historyCaptures = useMemo<HistoryCapture[]>(
     () =>
-      capturesList.map((c) => ({
+      (captures ?? []).map((c) => ({
         id: c._id,
         createdAt: c.createdAt,
         thumb: c.thumb,
@@ -89,80 +123,46 @@ export default function Focus() {
         heading: c.heading,
         metrics: c.metrics as unknown as FrameMetrics,
       })),
-    [capturesList],
+    [captures],
   );
 
   const activityPings = useMemo<ActivityPing[]>(
     () =>
-      activityList.map((a) => ({
+      (activity ?? []).map((a) => ({
         id: a.id,
         createdAt: a.createdAt,
         lat: a.lat,
         lng: a.lng,
       })),
-    [activityList],
+    [activity],
   );
 
   const nearbyCount = useMemo(() => {
-    if (geo.lat === null || geo.lng === null) return capturesForOverlay.length;
-    return capturesForOverlay.filter(
+    if (geo.lat === null || geo.lng === null) return historyCaptures.length;
+    return historyCaptures.filter(
       (c) => distanceM(geo.lat!, geo.lng!, c.lat, c.lng) <= 120,
     ).length;
-  }, [geo.lat, geo.lng, capturesForOverlay]);
+  }, [geo.lat, geo.lng, historyCaptures]);
 
   const aiCtx = useMemo<AiContext>(
     () => ({
-      layer: LAYER_MAP[activeLayer].id,
-      layerName: LAYER_MAP[activeLayer].name,
+      layer: layer.id,
+      layerName: layer.name,
       metrics,
       weather,
       lat: geo.lat,
       lng: geo.lng,
       heading,
-      captureCount: capturesForOverlay.length,
+      captureCount: historyCaptures.length,
       nearbyCaptureCount: nearbyCount,
-      ocr: [],
-      anomalies: [],
+      ocr: ocrItems.map((i) => i.text),
+      anomalies,
       feed,
       network,
       timeOfDay: new Date().toLocaleTimeString(),
       activeSince: "session start",
     }),
-    [activeLayer, metrics, weather, geo, heading, capturesForOverlay.length, nearbyCount, feed, network],
-  );
-
-  const enqueueObjectScan = useCallback(
-    async (dataUrl: string) => {
-      if (!layerCanScan || !dataUrl) return;
-      setScanHit(null);
-      setScanPending(true);
-      lastScanKey.current += 1;
-      const key = lastScanKey.current;
-      scanCooldown.current = 1600;
-      try {
-        const hit = await identifyObject({ thumbBase64: dataUrl });
-        if (key === lastScanKey.current) {
-          // The server-side lookup may return null when no remote provider is
-          // configured. In that case, fall back to the real on-device read.
-          if (hit && typeof hit === "object" && "source" in hit && hit.source === "exact") {
-            setScanHit(hit as ScanHit);
-          } else {
-            const local = localHit ?? identifyLocal();
-            setScanHit(local ?? null);
-          }
-        }
-      } catch {
-        if (key === lastScanKey.current) {
-          const local = localHit ?? identifyLocal();
-          setScanHit(local ?? null);
-        }
-      } finally {
-        if (key === lastScanKey.current) {
-          setScanPending(false);
-        }
-      }
-    },
-    [identifyObject, layerCanScan, localHit, identifyLocal],
+    [layer, metrics, weather, geo, heading, historyCaptures.length, nearbyCount, ocrItems, anomalies, feed, network],
   );
 
   const handleCapture = async () => {
@@ -179,38 +179,33 @@ export default function Focus() {
         heading: shot.heading,
         thumb: shot.thumb,
         metrics: shot.metrics,
-        ocr: [],
+        ocr: ocrItems.map((i) => ({
+          text: i.text,
+          confidence: i.confidence,
+          x: i.x,
+          y: i.y,
+        })),
       });
       toast.success("Capture archived — History layer updated");
     } catch {
       toast.error("Failed to archive capture");
     }
-    if (shot.thumb && layerCanScan) {
-      const dataUrl = shot.thumb.startsWith("data:")
-        ? shot.thumb
-        : `data:image/jpeg;base64,${shot.thumb.split(",")[1] ?? ""}`;
-      enqueueObjectScan(dataUrl);
+
+    // Object scan: identify the primary object in the captured frame and
+    // show it in the HUD if the provider returns a hit.
+    if (shot.thumb && activeLayer === "core") {
+      setScanHit(null);
+      const hit = await identifyObject({ thumbBase64: shot.thumb });
+      if (hit) {
+        setScanHit(hit as import("@/convex/objectScan").Hit);
+      }
     }
   };
-
-  const handleRescan = useCallback(() => {
-    if (scanPending || scanCooldown.current > 0 || !frameCanvas) return;
-    const dataUrl = frameCanvas.toDataURL("image/jpeg", 0.75);
-    enqueueObjectScan(dataUrl);
-  }, [frameCanvas, enqueueObjectScan, scanPending]);
-
-  // When the analysis frame changes, refresh the real on-device read so the
-  // HUD reflects what the current frame can actually say.
-  useEffect(() => {
-    if (!layerCanScan || scanPending) return;
-    const local = localHit ?? identifyLocal();
-    setScanHit(local ?? null);
-  }, [localHit, identifyLocal, layerCanScan, scanPending]);
 
   return (
     <div
       className="fixed inset-0 select-none overflow-hidden bg-[#02040a] text-white"
-      style={{ "--accent": LAYER_MAP[activeLayer].color } as React.CSSProperties}
+      style={{ "--accent": layer.color } as React.CSSProperties}
     >
       {/* live feed */}
       <video
@@ -225,55 +220,36 @@ export default function Focus() {
         className={`absolute inset-0 size-full ${feed === "synthetic" ? "" : "hidden"}`}
       />
 
-      {/* live focus bounding frame */}
-      {activeLayer === "core" &&
-        scanHit?.box &&
-        (() => {
-          const box = scanHit.box;
-          return (
-            <ScanFrame
-              key={box.x + box.y}
-              box={box}
-              accent={LAYER_MAP[activeLayer].color}
-              label={scanHit.label}
-            />
-          );
-        })()}
-
-      {/* live focus scan readout */}
+      {/* object scan HUD overlay */}
       <ObjectScan
         hit={scanHit}
-        accent={LAYER_MAP[activeLayer].color}
+        accent={layer.color}
         onDismiss={() => setScanHit(null)}
-        onRescan={handleRescan}
+        onRescan={() => {
+          if (scanCooldown.current > 0 || !frameCanvas) return;
+          scanCooldown.current = 1400;
+          const dataUrl = frameCanvas.toDataURL("image/jpeg", 0.7);
+          identifyObject({ thumbBase64: dataUrl }).then((hit) => {
+            if (hit) setScanHit(hit as import("@/convex/objectScan").Hit);
+          });
+        }}
         canScan={layerCanScan}
         cooldown={scanCooldown.current}
-        pending={scanPending}
       />
-
-      {/* real live-object scan frame marker */}
-      {scanHit?.box && activeLayer === "core" && (
-        <ScanFrame
-          key={`${scanHit.box.x}-${scanHit.box.y}`}
-          box={scanHit.box}
-          accent={LAYER_MAP[activeLayer].color}
-          label={scanHit.source === "exact" ? scanHit.label : "SCAN LOCK"}
-        />
-      )}
 
       {/* layer data over the feed */}
       <LayerOverlays
         layer={activeLayer}
         metrics={metrics}
         weather={weather}
-        captures={capturesForOverlay}
+        captures={historyCaptures}
         activity={activityPings}
         geo={{ lat: geo.lat, lng: geo.lng }}
         heading={heading}
-        ocr={[]}
-        ocrStatus="offline"
-        anomalies={[]}
-        accent={LAYER_MAP[activeLayer].color}
+        ocr={ocrItems}
+        ocrStatus={ocrStatus}
+        anomalies={anomalies}
+        accent={layer.color}
       />
 
       {/* HUD chrome */}
@@ -283,41 +259,40 @@ export default function Focus() {
         lng={geo.lng}
         heading={heading}
         network={network}
-        captureCount={capturesForOverlay.length}
-        accent={LAYER_MAP[activeLayer].color}
-        layerCode={LAYER_MAP[activeLayer].code}
-        layerName={LAYER_MAP[activeLayer].name}
-        ocrStatus="offline"
+        captureCount={historyCaptures.length}
+        accent={layer.color}
+        layerCode={layer.code}
+        layerName={layer.name}
+        ocrStatus={ocrStatus}
         time={time}
         aiOpen={aiOpen}
         onToggleAi={() => setAiOpen((v) => !v)}
         onExit={() => navigate("/")}
         onOpenGallery={() => navigate("/gallery")}
-        cloudAvailable={Boolean(cloudAsk)}
-        cloudEnabled={false}
-        onToggleCloud={() => {}}
-        scanHit={scanHit}
+        cloudAvailable={cloudAvailable}
+        cloudEnabled={cloudEnabled}
+        onToggleCloud={onToggleCloud}
       />
 
       {/* radar */}
       <div className="absolute right-3 top-[52px] z-30 hidden md:block">
-        <Radar metrics={metrics} anomalies={[]} accent={LAYER_MAP[activeLayer].color} />
+        <Radar metrics={metrics} anomalies={anomalies} accent={layer.color} />
       </div>
 
       {/* metrics */}
       <ReadoutPanel
-        layer={LAYER_MAP[activeLayer]}
+        layer={layer}
         metrics={metrics}
         weather={weather}
         network={network}
-        anomalies={[]}
-        baselineCaptureCount={capturesForOverlay.length}
+        anomalies={anomalies}
+        baselineCaptureCount={historyCaptures.length}
       />
 
       {/* capture + feed */}
       <CaptureButton
         capturing={capturing}
-        accent={LAYER_MAP[activeLayer].color}
+        accent={layer.color}
         feed={feed}
         onCapture={() => void handleCapture()}
         onToggleFeed={() => void toggleFeed()}
@@ -332,9 +307,9 @@ export default function Focus() {
         onClose={() => setAiOpen(false)}
         ctx={aiCtx}
         cloudAsk={cloudAsk}
-        cloudAvailable={Boolean(cloudAsk)}
-        cloudEnabled={false}
-        onToggleCloud={() => {}}
+        cloudAvailable={cloudAvailable}
+        cloudEnabled={cloudEnabled}
+        onToggleCloud={onToggleCloud}
       />
     </div>
   );

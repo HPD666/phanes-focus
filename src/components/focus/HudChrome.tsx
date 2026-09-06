@@ -24,7 +24,6 @@ interface HudChromeProps {
   cloudAvailable: boolean;
   cloudEnabled: boolean;
   onToggleCloud: () => void;
-  scanHit: import("@/convex/objectScan").Hit | null;
 }
 
 export function HudChrome({
@@ -46,15 +45,8 @@ export function HudChrome({
   cloudAvailable,
   cloudEnabled,
   onToggleCloud,
-  scanHit,
 }: HudChromeProps) {
   const feedLabel = feed === "camera" ? "CAM" : feed === "synthetic" ? "SIM" : "OFF";
-  const scanRow =
-    scanHit && scanHit.source === "exact"
-      ? "MATCH"
-      : scanHit
-        ? "GEN"
-        : null;
   return (
     <div className="pointer-events-none absolute inset-0 z-20">
       {/* scanlines */}
@@ -109,22 +101,6 @@ export function HudChrome({
           <span className="hud-label rounded-sm border border-white/10 px-2 py-1">
             {feedLabel}
           </span>
-          {scanRow ? (
-            <span
-              className={cn(
-                "hud-label rounded-sm border px-2 py-1 text-[9px] uppercase tracking-[0.18em]",
-                scanRow === "MATCH"
-                  ? "border-[#7dff9b]/30 bg-[#7dff9b]/8 text-[#7dff9b]"
-                  : "border-[#ffb454]/30 bg-[#ffb454]/8 text-[#ffb454]",
-              )}
-            >
-              {scanRow === "MATCH" ? "OBJECT MATCH" : "INFERENCE"}
-            </span>
-          ) : (
-            <span className="hud-label rounded-sm border border-white/10 px-2 py-1">
-              SCAN WAITING
-            </span>
-          )}
           <span
             className={cn(
               "hud-label hidden rounded-sm border border-white/10 px-2 py-1 md:inline",
